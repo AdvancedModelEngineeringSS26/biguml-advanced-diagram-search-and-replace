@@ -31,7 +31,13 @@ export async function activateClient(context: vscode.ExtensionContext): Promise<
         diContainer.getAll<OnActivate>(TYPES.OnActivate).forEach(service => service.onActivate?.());
 
         setTimeout(() => {
-            diContainer!.get<GlspServer>(TYPES.GlspServer).start();
+            void diContainer!
+                .get<GlspServer>(TYPES.GlspServer)
+                .start()
+                .catch(error => {
+                console.error('Failed to connect to GLSP server:', error);
+                vscode.window.showErrorMessage('Could not connect to the diagram server. Please restart the extension and check server logs.');
+            });
         }, 2000);
 
         vscode.commands.executeCommand('setContext', `${VSCodeSettings.name}.isRunning`, true);
