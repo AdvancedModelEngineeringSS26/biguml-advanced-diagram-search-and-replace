@@ -10,6 +10,31 @@
 import { Action, RequestAction, type ResponseAction } from '@eclipse-glsp/protocol';
 
 /**
+ * Action sent from VS Code provider to the webview carrying full-diagram SVG data.
+ */
+export interface AdvancedSearchSvgUpdateAction extends Action {
+    kind: typeof AdvancedSearchSvgUpdateAction.KIND;
+    svg: string;
+    bounds: { x: number; y: number; width: number; height: number };
+}
+
+export namespace AdvancedSearchSvgUpdateAction {
+    export const KIND = 'advancedSearchSvgUpdate';
+
+    export function is(object: unknown): object is AdvancedSearchSvgUpdateAction {
+        return Action.hasKind(object, KIND);
+    }
+
+    export function create(options: { svg: string; bounds: { x: number; y: number; width: number; height: number } }): AdvancedSearchSvgUpdateAction {
+        return {
+            kind: KIND,
+            svg: options.svg,
+            bounds: options.bounds
+        };
+    }
+}
+
+/**
  * Request sent from WebView to backend to initiate an advanced search.
  */
 export interface RequestAdvancedSearchAction extends RequestAction<AdvancedSearchActionResponse> {

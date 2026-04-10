@@ -69,3 +69,20 @@
 .result-item:hover .result-item__details {
     display: block;
 }
+
+.result-item__preview {
+    margin-top: 0.25rem;
+    border: 1px solid var(--vscode-panel-border, #3c3c3c);
+    border-radius: 4px;
+    background: var(--vscode-editor-background, #1e1e1e);
+    padding: 4px;
+    max-height: 150px;
+    overflow: hidden;
+}
+
+.result-item__preview svg {
+    display: block;
+    width: 100%;
+    max-height: 140px;
+    object-fit: contain;
+}

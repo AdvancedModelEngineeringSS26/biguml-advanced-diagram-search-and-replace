@@ -9,3 +9,4 @@
 
 export * from './advancedsearch.action.js';
 export * from './highlight.action.js';
+export * from './searchresult.js';
