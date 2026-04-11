@@ -45,6 +45,26 @@
     gap: 0.5rem;
 }
 
+.result-item__thumbnail {
+    width: 44px;
+    height: 32px;
+    flex: 0 0 auto;
+}
+
+.result-item__thumb-surface {
+    fill: var(--vscode-editorWidget-background, #252526);
+    stroke: var(--vscode-editorWidget-border, #3c3c3c);
+}
+
+.result-item__thumb-accent {
+    fill: var(--vscode-textLink-foreground, #4ea1ff);
+}
+
+.result-item__thumb-line {
+    fill: var(--vscode-descriptionForeground, #999);
+    opacity: 0.8;
+}
+
 .result-item__tag {
     flex: 0 0 auto;
 }

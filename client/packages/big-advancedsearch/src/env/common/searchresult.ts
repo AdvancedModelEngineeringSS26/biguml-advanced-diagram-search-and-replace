@@ -13,4 +13,6 @@ export interface SearchResult {
     name: string;
     parentName?: string;
     details?: string;
+    svg: string | undefined;
+    bounds: { x: number; y: number; width: number; height: number; } | undefined;
 }

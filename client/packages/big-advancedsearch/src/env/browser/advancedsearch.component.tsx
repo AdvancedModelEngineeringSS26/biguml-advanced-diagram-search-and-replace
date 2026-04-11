@@ -14,6 +14,7 @@ import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../co
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
 
 import type { SearchResult } from '../common/searchresult.js';
+import { SearchResultThumbnail } from './search-result-thumbnail.component.js';
 
 export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
@@ -54,7 +55,7 @@ export function AdvancedSearch(): ReactElement {
                 <BTextfield
                     className='advanced-search__text'
                     value={query}
-                    placeholder='e.g. Class:Lecture'
+                    placeholder='e.g. Class:Course'
                     onInput={e => fireSearch((e.target as HTMLInputElement).value)}
                 >
                     <span slot='end' className='codicon codicon-search' />
@@ -69,6 +70,7 @@ export function AdvancedSearch(): ReactElement {
                                 <div className='result-item__header'>
                                     <BBadge className='result-item__tag'>{item.type}</BBadge>
                                     <span className='result-item__name'>{item.name}</span>
+                                    <SearchResultThumbnail svg={item.svg} bounds={item.bounds} />
                                 </div>
                                 {item.details && <div className='result-item__details'>{item.details}</div>}
                             </li>
