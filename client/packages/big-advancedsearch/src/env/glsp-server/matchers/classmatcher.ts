@@ -12,6 +12,8 @@ import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
 import { SharedElementCollector } from './sharedcollector.js';
 
+type SearchResultWithProperties = SearchResult & { properties?: Record<string, string> };
+
 export class ClassDiagramMatcher implements IMatcher {
     private readonly supportedTypes = [
         'class',
@@ -54,8 +56,40 @@ export class ClassDiagramMatcher implements IMatcher {
         return this.supportedTypes;
     }
 
+    private collectProperties(element: any): Record<string, string> {
+        const properties: Record<string, string> = {};
+
+        if (element.name !== undefined && element.name !== null) {
+            properties.name = String(element.name);
+        }
+        if (element.visibility !== undefined && element.visibility !== null) {
+            properties.visibility = String(element.visibility);
+        }
+        if (element.multiplicity !== undefined && element.multiplicity !== null) {
+            properties.multiplicity = String(element.multiplicity);
+        }
+        if (element.lowerValue !== undefined || element.upperValue !== undefined) {
+            const lower = element.lowerValue !== undefined ? String(element.lowerValue) : '*';
+            const upper = element.upperValue !== undefined ? String(element.upperValue) : '*';
+            properties.multiplicity = `${lower}..${upper}`;
+        }
+
+        const referenceType = element.propertyType?.$refText ?? element.parameterType?.$refText ?? element.$refText;
+        if (referenceType) {
+            properties.type = String(referenceType);
+        } else if (element.type !== undefined && element.type !== null) {
+            properties.type = String(element.type);
+        }
+
+        if (element.defaultValue !== undefined && element.defaultValue !== null) {
+            properties.defaultValue = String(element.defaultValue);
+        }
+
+        return properties;
+    }
+
     match(diagram: ClassDiagram): SearchResult[] {
-        const results: SearchResult[] = [];
+        const results: SearchResultWithProperties[] = [];
         const idToName = new Map<string, string>();
 
         // First pass: collect all names for cross-reference resolution
@@ -73,12 +107,13 @@ export class ClassDiagramMatcher implements IMatcher {
             const name = element.name ?? `<<${type}>>`;
             const id = element.__id;
 
+            const properties = this.collectProperties(element);
             switch (type) {
                 case 'Class':
                 case 'AbstractClass':
                 case 'Interface':
                 case 'DataType':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, properties });
                     break;
                 case 'Property': {
                     const typeName = element.propertyType?.$refText;
@@ -87,7 +122,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: typeName ? `${typeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined
+                        details: typeName ? `${typeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined,
+                        properties
                     });
                     break;
                 }
@@ -97,7 +133,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: parentName ? `In ${parentName}` : undefined
+                        details: parentName ? `In ${parentName}` : undefined,
+                        properties
                     });
                     break;
                 case 'Parameter': {
@@ -112,7 +149,7 @@ export class ClassDiagramMatcher implements IMatcher {
                     break;
                 }
                 case 'Enumeration':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, properties });
                     break;
                 case 'EnumerationLiteral':
                     results.push({
@@ -120,15 +157,16 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: parentName ? `In Enumeration ${parentName}` : undefined
+                        details: parentName ? `In Enumeration ${parentName}` : undefined,
+                        properties
                     });
                     break;
                 case 'PrimitiveType':
                 case 'Package':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, properties });
                     break;
                 case 'InstanceSpecification':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, properties });
                     break;
                 case 'Slot': {
                     const featureName = element.definingFeature?.$refText;
@@ -142,7 +180,7 @@ export class ClassDiagramMatcher implements IMatcher {
                     break;
                 }
                 case 'LiteralSpecification':
-                    results.push({ id, type, name: name ?? 'Unnamed', parentName });
+                    results.push({ id, type, name: name ?? 'Unnamed', parentName, properties });
                     break;
             }
         });
@@ -168,7 +206,11 @@ export class ClassDiagramMatcher implements IMatcher {
                 id: relation.__id,
                 type,
                 name: relationName,
-                details: `${type} from ${sourceName} to ${targetName}`
+                details: `${type} from ${sourceName} to ${targetName}`,
+                properties: {
+                    source: sourceName,
+                    target: targetName
+                }
             });
         }
 

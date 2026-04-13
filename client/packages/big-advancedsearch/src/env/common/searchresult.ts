@@ -13,4 +13,5 @@ export interface SearchResult {
     name: string;
     parentName?: string;
     details?: string;
+    properties?: Record<string, string>;
 }
