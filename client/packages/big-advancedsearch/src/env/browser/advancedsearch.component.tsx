@@ -162,12 +162,12 @@ export function AdvancedSearch(): ReactElement {
                                     <div className='result-item__header'>
                                         <BBadge className='result-item__tag'>{item.type}</BBadge>
                                         <span className='result-item__name'>{item.name}</span>
-                                        <SearchResultThumbnail
-                                            svg={extracted?.svgContent}
-                                            bounds={extracted?.bounds}
-                                        />
                                     </div>
                                     {item.details && <div className='result-item__details'>{item.details}</div>}
+                                    <SearchResultThumbnail
+                                        svg={extracted?.svgContent}
+                                        bounds={extracted?.bounds}
+                                    />
                                 </li>
                             );
                         })}

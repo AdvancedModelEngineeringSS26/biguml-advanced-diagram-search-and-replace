@@ -45,10 +45,20 @@
     gap: 0.5rem;
 }
 
+.result-item__thumbnail-container {
+    width: 100%;
+    max-height: 120px;
+    overflow: hidden;
+    border: 1px solid var(--vscode-editorWidget-border, #3c3c3c);
+    border-radius: 4px;
+    background: var(--vscode-editorWidget-background, #252526);
+}
+
 .result-item__thumbnail {
-    width: 44px;
-    height: 32px;
-    flex: 0 0 auto;
+    width: 100%;
+    height: auto;
+    max-height: 120px;
+    display: block;
 }
 
 .result-item__thumb-surface {
