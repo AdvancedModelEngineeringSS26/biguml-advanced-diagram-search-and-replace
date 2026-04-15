@@ -35,7 +35,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
 
     protected actionCache: CacheActionListener;
     protected currentDiagramSvg: string | undefined;
-    protected currentDiagramBounds: { x: number; y: number; width: number; height: number } | undefined;
     protected pendingSearchResults: SearchResult[] | undefined;
 
     constructor(@inject(TYPES.WebviewViewOptions) options: WebviewViewProviderOptions) {
@@ -60,19 +59,15 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
         this.toDispose.push(
             this.connector.onClientActionMessage(message => {
                 if (MinimapExportSvgAction.is(message.action) && this.pendingSearchResults) {
-                    const { svg, bounds } = message.action as MinimapExportSvgAction;
+                    const { svg } = message.action as MinimapExportSvgAction;
                     this.currentDiagramSvg = svg;
-                    this.currentDiagramBounds = bounds;
 
-                    // Enrich each search result with the full diagram SVG
-                    for (const result of this.pendingSearchResults) {
-                        result.svg = svg;
-                        result.bounds = bounds;
-                    }
-
-                    // Re-dispatch enriched results to the webview
+                    // Re-dispatch results with the full diagram SVG for client-side cropping
                     this.actionMessenger.dispatch(
-                        AdvancedSearchActionResponse.create({ results: this.pendingSearchResults })
+                        AdvancedSearchActionResponse.create({
+                            results: this.pendingSearchResults,
+                            fullDiagramSvg: svg
+                        })
                     );
                     this.pendingSearchResults = undefined;
                 }

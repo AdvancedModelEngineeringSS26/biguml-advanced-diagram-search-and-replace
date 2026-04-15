@@ -40,6 +40,7 @@ export namespace RequestAdvancedSearchAction {
 export interface AdvancedSearchActionResponse extends ResponseAction {
     kind: typeof AdvancedSearchActionResponse.KIND;
     results: SearchResult[];
+    fullDiagramSvg?: string;
 }
 
 export namespace AdvancedSearchActionResponse {
@@ -55,7 +56,8 @@ export namespace AdvancedSearchActionResponse {
         return {
             kind: KIND,
             responseId: options?.responseId ?? '',
-            results: options?.results ?? []
+            results: options?.results ?? [],
+            fullDiagramSvg: options?.fullDiagramSvg
         };
     }
 }

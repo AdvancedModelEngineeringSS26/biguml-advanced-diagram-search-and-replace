@@ -15,13 +15,14 @@ export interface SearchResultThumbnailProps {
 }
 
 export function SearchResultThumbnail({ svg, bounds }: SearchResultThumbnailProps): ReactElement {
-    if (svg) {
-        const viewBox = bounds ? `0 0 ${bounds.width} ${bounds.height}` : undefined;
+    if (svg && bounds) {
+        const padding = 10;
+        const viewBox = `${bounds.x - padding} ${bounds.y - padding} ${bounds.width + padding * 2} ${bounds.height + padding * 2}`;
 
         return (
             <div className='result-item__thumbnail-container'>
-                <svg 
-                    className='result-item__thumbnail result-item__thumbnail--dynamic' 
+                <svg
+                    className='result-item__thumbnail result-item__thumbnail--dynamic'
                     viewBox={viewBox}
                 >
                     <g dangerouslySetInnerHTML={{ __html: svg }} />
