@@ -12,9 +12,10 @@ import { type ReactElement } from 'react';
 export interface SearchResultThumbnailProps {
     svg?: string;
     bounds?: { x: number; y: number; width: number; height: number };
+    loading?: boolean;
 }
 
-export function SearchResultThumbnail({ svg, bounds }: SearchResultThumbnailProps): ReactElement {
+export function SearchResultThumbnail({ svg, bounds, loading }: SearchResultThumbnailProps): ReactElement {
     if (svg && bounds) {
         const padding = 10;
         const viewBox = `${bounds.x - padding} ${bounds.y - padding} ${bounds.width + padding * 2} ${bounds.height + padding * 2}`;
@@ -27,6 +28,14 @@ export function SearchResultThumbnail({ svg, bounds }: SearchResultThumbnailProp
                 >
                     <g dangerouslySetInnerHTML={{ __html: svg }} />
                 </svg>
+            </div>
+        );
+    }
+
+    if (loading) {
+        return (
+            <div className='result-item__thumbnail-container result-item__thumbnail-container--loading'>
+                <div className='result-item__thumbnail-shimmer' />
             </div>
         );
     }

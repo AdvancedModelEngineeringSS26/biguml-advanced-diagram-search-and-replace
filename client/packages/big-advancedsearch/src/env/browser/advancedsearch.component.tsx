@@ -99,10 +99,13 @@ export function AdvancedSearch(): ReactElement {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
+    const [svgLoading, setSvgLoading] = useState(false);
 
     const fireSearch = (value: string) => {
         setQuery(value);
         if (clientId) {
+            setSvgLoading(true);
+            setFullDiagramSvg(undefined);
             dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
         }
     };
@@ -128,6 +131,7 @@ export function AdvancedSearch(): ReactElement {
                 setResults(action.results);
                 if (action.fullDiagramSvg) {
                     setFullDiagramSvg(action.fullDiagramSvg);
+                    setSvgLoading(false);
                 }
             }
             if (HighlightElementActionResponse.is(action)) {
@@ -167,6 +171,7 @@ export function AdvancedSearch(): ReactElement {
                                     <SearchResultThumbnail
                                         svg={extracted?.svgContent}
                                         bounds={extracted?.bounds}
+                                        loading={svgLoading}
                                     />
                                 </li>
                             );
