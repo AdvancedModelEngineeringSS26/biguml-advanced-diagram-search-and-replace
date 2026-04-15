@@ -104,8 +104,9 @@ export function AdvancedSearch(): ReactElement {
     const fireSearch = (value: string) => {
         setQuery(value);
         if (clientId) {
-            setSvgLoading(true);
-            setFullDiagramSvg(undefined);
+            if (!fullDiagramSvg) {
+                setSvgLoading(true);
+            }
             dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
         }
     };
@@ -132,6 +133,8 @@ export function AdvancedSearch(): ReactElement {
                 if (action.fullDiagramSvg) {
                     setFullDiagramSvg(action.fullDiagramSvg);
                     setSvgLoading(false);
+                } else if (action.results.length > 0) {
+                    setSvgLoading(true);
                 }
             }
             if (HighlightElementActionResponse.is(action)) {

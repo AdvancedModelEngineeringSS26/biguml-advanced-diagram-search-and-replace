@@ -80,13 +80,25 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
         disposables.push(
             super.resolveWebviewProtocol(messenger),
             this.actionCache.onDidChange(message => {
-                // Forward search results to the webview immediately
-                this.actionMessenger.dispatch(message);
-
-                // If results were returned, request a full diagram SVG export
                 if (AdvancedSearchActionResponse.is(message.action) && message.action.results.length > 0) {
-                    this.pendingSearchResults = message.action.results.map(r => ({ ...r }));
-                    this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
+                    const results = message.action.results;
+
+                    if (this.currentDiagramSvg) {
+                        // Reuse cached SVG — no round-trip needed
+                        this.actionMessenger.dispatch(
+                            AdvancedSearchActionResponse.create({
+                                results,
+                                fullDiagramSvg: this.currentDiagramSvg
+                            })
+                        );
+                    } else {
+                        // Forward results immediately, then request SVG export
+                        this.actionMessenger.dispatch(message);
+                        this.pendingSearchResults = results.map(r => ({ ...r }));
+                        this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
+                    }
+                } else {
+                    this.actionMessenger.dispatch(message);
                 }
             }),
             this.connectionManager.onDidActiveClientChange(() => {
