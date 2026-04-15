@@ -8,6 +8,7 @@
  *********************************************************************************/
 
 import { Action, RequestAction, type ResponseAction } from '@eclipse-glsp/protocol';
+import type { SearchResult } from './searchresult.js';
 
 /**
  * Request sent from WebView to backend to initiate an advanced search.
@@ -38,13 +39,7 @@ export namespace RequestAdvancedSearchAction {
  */
 export interface AdvancedSearchActionResponse extends ResponseAction {
     kind: typeof AdvancedSearchActionResponse.KIND;
-    results: {
-        id: string;
-        type: string;
-        name: string;
-        parentName?: string;
-        details?: string;
-    }[];
+    results: SearchResult[];
 }
 
 export namespace AdvancedSearchActionResponse {

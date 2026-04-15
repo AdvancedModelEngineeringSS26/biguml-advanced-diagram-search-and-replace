@@ -78,7 +78,7 @@ export class ClassDiagramMatcher implements IMatcher {
                 case 'AbstractClass':
                 case 'Interface':
                 case 'DataType':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
                     break;
                 case 'Property': {
                     const typeName = element.propertyType?.$refText;
@@ -87,7 +87,9 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: typeName ? `${typeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined
+                        details: typeName ? `${typeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined,
+                        svg: undefined,
+                        bounds: undefined
                     });
                     break;
                 }
@@ -97,7 +99,9 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: parentName ? `In ${parentName}` : undefined
+                        details: parentName ? `In ${parentName}` : undefined,
+                        svg: undefined,
+                        bounds: undefined
                     });
                     break;
                 case 'Parameter': {
@@ -107,12 +111,14 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: paramTypeName ? `${paramTypeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined
+                        details: paramTypeName ? `${paramTypeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined,
+                        svg: undefined,
+                        bounds: undefined
                     });
                     break;
                 }
                 case 'Enumeration':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
                     break;
                 case 'EnumerationLiteral':
                     results.push({
@@ -120,15 +126,17 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: parentName ? `In Enumeration ${parentName}` : undefined
+                        details: parentName ? `In Enumeration ${parentName}` : undefined,
+                        svg: undefined,
+                        bounds: undefined
                     });
                     break;
                 case 'PrimitiveType':
                 case 'Package':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
                     break;
                 case 'InstanceSpecification':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
                     break;
                 case 'Slot': {
                     const featureName = element.definingFeature?.$refText;
@@ -137,12 +145,14 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name: name ?? 'Unnamed',
                         parentName,
-                        details: featureName ? `Feature: ${featureName}` : undefined
+                        details: featureName ? `Feature: ${featureName}` : undefined,
+                        svg: undefined,
+                        bounds: undefined
                     });
                     break;
                 }
                 case 'LiteralSpecification':
-                    results.push({ id, type, name: name ?? 'Unnamed', parentName });
+                    results.push({ id, type, name: name ?? 'Unnamed', parentName, svg: undefined, bounds: undefined });
                     break;
             }
         });
@@ -168,7 +178,9 @@ export class ClassDiagramMatcher implements IMatcher {
                 id: relation.__id,
                 type,
                 name: relationName,
-                details: `${type} from ${sourceName} to ${targetName}`
+                details: `${type} from ${sourceName} to ${targetName}`,
+                svg: undefined,
+                bounds: undefined
             });
         }
 
