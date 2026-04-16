@@ -9,7 +9,7 @@
 
 import { ModelPatchCommand } from '@borkdominik-biguml/uml-glsp-server/vscode';
 import type { DiagramModelState } from '@borkdominik-biguml/uml-glsp-server/vscode';
-import { ModelState, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
+import { ModelState, ModelSubmissionHandler, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
 
@@ -21,6 +21,9 @@ export class ReplaceActionHandler implements ActionHandler {
 
     @inject(ModelState)
     readonly modelState: DiagramModelState;
+
+    @inject(ModelSubmissionHandler)
+    protected readonly modelSubmissionHandler: ModelSubmissionHandler;
 
     execute(action: RequestReplaceAction): MaybePromise<any[]> {
         if (RequestReplaceAction.is(action)) {
@@ -79,6 +82,8 @@ export class ReplaceActionHandler implements ActionHandler {
         if (patchOps.length > 0) {
             const cmd = new ModelPatchCommand(this.modelState, JSON.stringify(patchOps));
             await cmd.execute();
+            const submissionActions = await this.modelSubmissionHandler.submitModel();
+            return [...submissionActions, ReplaceActionResponse.create({ ok: true, results })];
         }
 
         return [ReplaceActionResponse.create({ ok: true, results })];
