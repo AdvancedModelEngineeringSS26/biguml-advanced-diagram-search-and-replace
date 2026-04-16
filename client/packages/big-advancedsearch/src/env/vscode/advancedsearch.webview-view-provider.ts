@@ -19,6 +19,7 @@ import { DisposableCollection } from '@eclipse-glsp/vscode-integration';
 import { inject, injectable, postConstruct } from 'inversify';
 import type { Disposable } from 'vscode';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
+import { ReplaceActionResponse } from '../common/replace.action.js';
 
 @injectable()
 export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
@@ -48,7 +49,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
 
     @postConstruct()
     protected init(): void {
-        this.actionCache = this.actionListener.createCache([AdvancedSearchActionResponse.KIND]);
+        this.actionCache = this.actionListener.createCache([AdvancedSearchActionResponse.KIND, ReplaceActionResponse.KIND]);
         this.toDispose.push(this.actionCache);
     }
 
