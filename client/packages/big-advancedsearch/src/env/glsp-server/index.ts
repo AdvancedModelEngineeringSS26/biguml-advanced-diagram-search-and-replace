@@ -9,3 +9,4 @@
 
 export * from './advancedsearch.handler.js';
 export * from './advancedsearch.module.js';
+export * from './replace.handler.js';

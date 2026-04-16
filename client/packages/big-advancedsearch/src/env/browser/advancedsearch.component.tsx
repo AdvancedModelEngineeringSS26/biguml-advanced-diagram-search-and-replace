@@ -7,11 +7,12 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import { BBadge, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
+import { BBadge, BButton, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
 import { useCallback, useContext, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
+import { ReplaceActionResponse, RequestReplaceAction } from '../common/replace.action.js';
 
 import type { SearchResult } from '../common/searchresult.js';
 
@@ -19,10 +20,13 @@ export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const [replaceWith, setReplaceWith] = useState('');
+    const [replaceStatus, setReplaceStatus] = useState<string | undefined>(undefined);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fireSearch = (value: string) => {
         setQuery(value);
+        setReplaceStatus(undefined);
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
             if (clientId) {
@@ -57,6 +61,21 @@ export function AdvancedSearch(): ReactElement {
         }
     }, []);
 
+    const fireReplaceAll = () => {
+        if (!clientId || results.length === 0) {
+            return;
+        }
+        setReplaceStatus(undefined);
+        const elementIds = results.map(r => r.id);
+        dispatchAction(
+            RequestReplaceAction.create({
+                elementIds,
+                searchPattern: query.includes(':') ? query.split(':', 2)[1]?.trim() ?? '' : query,
+                replaceWith
+            })
+        );
+    };
+
     useEffect(() => {
         const handler = (action: unknown) => {
             if (AdvancedSearchActionResponse.is(action)) {
@@ -65,10 +84,16 @@ export function AdvancedSearch(): ReactElement {
                 applyDiagramHighlighting(ids);
             }
             if (HighlightElementActionResponse.is(action)) {
-                if (HighlightElementActionResponse.is(action)) {
-                    if (action.ok) {
-                        return;
-                    }
+                if (action.ok) {
+                    return;
+                }
+            }
+            if (ReplaceActionResponse.is(action)) {
+                if (action.ok) {
+                    const changed = action.results?.filter(r => r.success && r.oldValue !== r.newValue).length ?? 0;
+                    setReplaceStatus(`Replaced ${changed} element${changed !== 1 ? 's' : ''}.`);
+                } else {
+                    setReplaceStatus(`Error: ${action.error ?? 'Replace failed'}`);
                 }
             }
         };
@@ -97,6 +122,22 @@ export function AdvancedSearch(): ReactElement {
                 >
                     <span slot='end' className='codicon codicon-search' />
                 </BTextfield>
+
+                <div className='advanced-search__replace-row'>
+                    <BTextfield
+                        className='advanced-search__text'
+                        value={replaceWith}
+                        placeholder='Replace with…'
+                        onInput={e => setReplaceWith((e.target as HTMLInputElement).value)}
+                    >
+                        <span slot='end' className='codicon codicon-replace' />
+                    </BTextfield>
+                    <BButton className='advanced-search__replace-btn' onClick={fireReplaceAll} disabled={results.length === 0}>
+                        Replace All
+                    </BButton>
+                </div>
+
+                {replaceStatus && <p className='advanced-search__replace-status'>{replaceStatus}</p>}
             </div>
 
             <div>
