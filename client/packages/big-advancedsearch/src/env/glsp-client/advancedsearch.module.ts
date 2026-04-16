@@ -10,9 +10,11 @@ import { FeatureModule } from '@eclipse-glsp/client';
 import { ExtensionActionKind } from '@eclipse-glsp/vscode-integration-webview/lib/features/default/extension-action-handler.js';
 import { AdvancedSearchActionResponse } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse } from '../common/highlight.action.js';
+import { ReplaceActionResponse } from '../common/replace.action.js';
 
 export const advancedSearchModule = new FeatureModule(bind => {
     // Allow the AdvancedSearchActionResponse to propagate to the server
     bind(ExtensionActionKind).toConstantValue(AdvancedSearchActionResponse.KIND);
     bind(ExtensionActionKind).toConstantValue(HighlightElementActionResponse.KIND);
+    bind(ExtensionActionKind).toConstantValue(ReplaceActionResponse.KIND);
 });

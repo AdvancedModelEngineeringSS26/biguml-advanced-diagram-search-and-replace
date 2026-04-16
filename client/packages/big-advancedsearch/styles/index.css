@@ -69,3 +69,20 @@
 .result-item:hover .result-item__details {
     display: block;
 }
+
+.advanced-search__replace-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.advanced-search__replace-btn {
+    flex: 0 0 auto;
+    white-space: nowrap;
+}
+
+.advanced-search__replace-status {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--vscode-descriptionForeground, #999);
+}
