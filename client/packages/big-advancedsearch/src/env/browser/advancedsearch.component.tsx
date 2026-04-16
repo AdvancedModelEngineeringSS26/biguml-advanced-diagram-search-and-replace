@@ -19,6 +19,7 @@ import type { SearchResult } from '../common/searchresult.js';
 export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
+    const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [replaceWith, setReplaceWith] = useState('');
     const [replaceStatus, setReplaceStatus] = useState<string | undefined>(undefined);
@@ -26,6 +27,7 @@ export function AdvancedSearch(): ReactElement {
 
     const fireSearch = (value: string) => {
         setQuery(value);
+        queryRef.current = value;
         setReplaceStatus(undefined);
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
@@ -92,6 +94,7 @@ export function AdvancedSearch(): ReactElement {
                 if (action.ok) {
                     const changed = action.results?.filter(r => r.success && r.oldValue !== r.newValue).length ?? 0;
                     setReplaceStatus(`Replaced ${changed} element${changed !== 1 ? 's' : ''}.`);
+                    dispatchAction(RequestAdvancedSearchAction.create({ query: queryRef.current }));
                 } else {
                     setReplaceStatus(`Error: ${action.error ?? 'Replace failed'}`);
                 }
