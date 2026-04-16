@@ -8,7 +8,7 @@
  **********************************************************************************/
 
 import { BBadge, BButton, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
-import { useContext, useEffect, useState, type ReactElement } from 'react';
+import { useContext, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
@@ -19,12 +19,14 @@ import type { SearchResult } from '../common/searchresult.js';
 export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
+    const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [replaceWith, setReplaceWith] = useState('');
     const [replaceStatus, setReplaceStatus] = useState<string | undefined>(undefined);
 
     const fireSearch = (value: string) => {
         setQuery(value);
+        queryRef.current = value;
         setReplaceStatus(undefined);
         if (clientId) {
             dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
@@ -67,6 +69,7 @@ export function AdvancedSearch(): ReactElement {
                 if (action.ok) {
                     const changed = action.results?.filter(r => r.success && r.oldValue !== r.newValue).length ?? 0;
                     setReplaceStatus(`Replaced ${changed} element${changed !== 1 ? 's' : ''}.`);
+                    dispatchAction(RequestAdvancedSearchAction.create({ query: queryRef.current }));
                 } else {
                     setReplaceStatus(`Error: ${action.error ?? 'Replace failed'}`);
                 }
