@@ -16,6 +16,7 @@ import { HighlightElementActionResponse, RequestHighlightElementAction } from '.
 import type { SearchResult } from '../common/searchresult.js';
 import type { IMatcher } from './matchers/IMatcher.js';
 import { ClassDiagramMatcher } from './matchers/classmatcher.js';
+import { buildAst } from './matchers/visitor.js';
 
 @injectable()
 export class AdvancedSearchActionHandler implements ActionHandler {
@@ -40,6 +41,8 @@ export class AdvancedSearchActionHandler implements ActionHandler {
         const diagram = this.modelState.semanticRoot.diagram;
         const results: SearchResult[] = [];
         const rawQuery = action.query.trim();
+        
+        const testVar = buildAst("Class[name=Student]");
 
         let type: string | undefined;
         let pattern: string | undefined;
