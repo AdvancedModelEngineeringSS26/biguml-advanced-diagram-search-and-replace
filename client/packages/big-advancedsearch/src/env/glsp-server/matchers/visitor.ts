@@ -1,39 +1,55 @@
 import { parse, parser } from './parser.js';
 
-// 1. Get the base constructor from the existing parser instance
 const BaseCstVisitor = parser.getBaseCstVisitorConstructor();
+
+// Define a structure for our search criteria
+export interface SearchCriteria {
+    type: 'Class';
+    name?: string;
+    isAbstract?: boolean;
+}
 
 class ModelAstBuilderVisitor extends BaseCstVisitor {
     constructor() {
         super();
-        // This connects the visitor methods to the rule names
         this.validateVisitor();
     }
 
-    // The name of the method must match the name of the RULE
-    expression(children: any) {
-        // Navigate down to the classRule
-        return this.visit(children.classRule);
+    expression(children: any): SearchCriteria {
+        return this.visit(children.classSearch);
     }
 
-    classRule(children: any) {
-        // "className" is the label we used in the parser:
-        // this.CONSUME(StringIdentifier, { LABEL: "className" });
+    classSearch(children: any): SearchCriteria {
+        const criteria: SearchCriteria = { type: 'Class' };
 
-        if (children.className) {
-            // Tokens are wrapped in an array. We take the first one and get its image (the text).
-            return children.className[0].image;
+        if (children.classSearchAttribute) {
+            children.classSearchAttribute.forEach((attrCst: any) => {
+                const attr = this.visit(attrCst);
+                Object.assign(criteria, attr);
+            });
         }
 
-        return 'UnnamedClass';
+        return criteria;
+    }
+
+    classSearchAttribute(children: any) {
+        if (children.classSearchName) return this.visit(children.classSearchName);
+        if (children.classSearchIsAbstract) return this.visit(children.classSearchIsAbstract);
+    }
+
+    classSearchName(children: any) {
+        return { name: children.className[0].image };
+    }
+
+    classSearchIsAbstract(children: any) {
+        const val = children.abstractValue[0].image.toLowerCase();
+        return { isAbstract: val === 'true' };
     }
 }
 
 const astBuilder = new ModelAstBuilderVisitor();
 
-export function buildAst(text: string) {
+export function buildAst(text: string): SearchCriteria {
     const cst = parse(text);
-    // The visit method starts the traversal
-    const classNode = astBuilder.visit(cst);
-    return classNode;
+    return astBuilder.visit(cst);
 }

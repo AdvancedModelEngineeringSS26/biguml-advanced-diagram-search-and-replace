@@ -12,6 +12,11 @@ export const Colon = createToken({
     pattern: /:/
 });
 
+export const Comma = createToken({
+    name: 'Comma',
+    pattern: /,/
+});
+
 export const WhiteSpace = createToken({
     name: 'WhiteSpace',
     pattern: /\s+/,
@@ -22,6 +27,12 @@ export const WhiteSpace = createToken({
 export const ClassKeyword = createToken({
     name: 'ClassKeyword',
     pattern: /Class/i,
+    longer_alt: StringIdentifier
+});
+
+export const AbstractKeyword = createToken({
+    name: 'AbstractKeyword',
+    pattern: /isAbstract/i,
     longer_alt: StringIdentifier
 });
 
@@ -53,8 +64,9 @@ export const allTokens = [
     // "keywords" appear before the Identifier
     ClassKeyword,
     NameKeyword,
+    AbstractKeyword,
     Equals,
-    Colon,
+    Comma,
     LeftSquareBracket,
     RightSquareBracket,
 

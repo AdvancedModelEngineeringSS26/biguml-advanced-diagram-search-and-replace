@@ -39,58 +39,25 @@ export class AdvancedSearchActionHandler implements ActionHandler {
 
     protected handleSearch(action: RequestAdvancedSearchAction): any[] {
         const diagram = this.modelState.semanticRoot.diagram;
-        const results: SearchResult[] = [];
         const rawQuery = action.query.trim();
         
-        const testVar = buildAst("Class[name=Student]");
+        try {
+            const criteria = buildAst(rawQuery);
 
-        let type: string | undefined;
-        let pattern: string | undefined;
-
-        if (rawQuery.includes(':')) {
-            const [rawType, rawPattern] = rawQuery.split(':', 2);
-            type = rawType?.trim().toLowerCase() || undefined;
-            pattern = rawPattern?.trim().toLowerCase() || undefined;
-        } else {
-            type = undefined;
-            pattern = rawQuery.toLowerCase();
-        }
-
-        const applicableMatchers = !type ? this.matchers : this.matchers.filter(m => m.supportsPartial?.(type as string));
-
-        for (const matcher of applicableMatchers) {
-            results.push(...matcher.match(diagram));
-        }
-
-        const filtered = results.filter(item => {
-            const itemType = item.type.toLowerCase();
-            const name = item.name?.toLowerCase() ?? '';
-            const details = item.details?.toLowerCase() ?? '';
-            const parentName = item.parentName?.toLowerCase() ?? '';
-            const matchesType = !type || itemType.includes(type);
-            const matchesPattern = !pattern || name.includes(pattern) || details.includes(pattern) || parentName.includes(pattern);
-            return matchesType && matchesPattern;
-        });
-
-        const unique = new Map<string, SearchResult>();
-        for (const item of filtered) {
-            const key = `${item.id}-${item.type}`;
-            const existing = unique.get(key);
-            if (!existing) {
-                unique.set(key, item);
-                continue;
+            const results: SearchResult[] = [];
+            for (const matcher of this.matchers) {
+                if (matcher instanceof ClassDiagramMatcher) {
+                    results.push(...matcher.matchAdvanced(diagram, criteria));
+                }
             }
-            const existingName = existing.name ?? '';
-            const candidateName = item.name ?? '';
-            const existingIsUnknown = existingName.includes('(unknown)');
-            const candidateIsUnknown = candidateName.includes('(unknown)');
-            if (existingIsUnknown && !candidateIsUnknown) {
-                unique.set(key, item);
-                continue;
-            }
-        }
 
-        return [AdvancedSearchActionResponse.create({ results: Array.from(unique.values()) })];
+            return [AdvancedSearchActionResponse.create({ results })];
+        } catch (e) {
+            // FALLBACK: If the custom query fails to parse,
+            // you can either return an empty list or fall back to your old string split logic.
+            console.error('Could not parse query', e);
+            return [AdvancedSearchActionResponse.create({ results: [] })];
+        }
     }
 
     protected handleHighlight(action: RequestHighlightElementAction): any[] {

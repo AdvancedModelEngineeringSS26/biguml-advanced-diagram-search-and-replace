@@ -4,12 +4,13 @@ import {
     tokenize,
     allTokens,
     ClassKeyword,
-    Colon,
     StringIdentifier,
     LeftSquareBracket,
     RightSquareBracket,
     NameKeyword,
-    Equals
+    Equals,
+    Comma,
+    AbstractKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -19,18 +20,41 @@ export class ModelParser extends CstParser {
     }
 
     public expression = this.RULE('expression', () => {
-        this.SUBRULE(this.classRule);
+        this.SUBRULE(this.classSearch);
     });
 
-    public classRule = this.RULE('classRule', () => {
+    public classSearch = this.RULE('classSearch', () => {
         this.CONSUME(ClassKeyword);
         this.OPTION(() => {
             this.CONSUME(LeftSquareBracket);
-            this.CONSUME(NameKeyword);
-            this.CONSUME(Equals);
-            this.CONSUME(StringIdentifier, { LABEL: 'className' });
+            this.MANY_SEP({
+                SEP: Comma,
+                DEF: () => {
+                    this.SUBRULE(this.classSearchAttribute);
+                }
+            });
             this.CONSUME(RightSquareBracket);
         });
+    });
+
+    // New rule to handle the different types of key-value pairs
+    public classSearchAttribute = this.RULE('classSearchAttribute', () => {
+        this.OR([
+            { ALT: () => this.SUBRULE(this.classSearchName) }, 
+            { ALT: () => this.SUBRULE(this.classSearchIsAbstract) }]
+        );
+    });
+
+    public classSearchName = this.RULE('classSearchName', () => {
+        this.CONSUME(NameKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'className' });
+    });
+
+    public classSearchIsAbstract = this.RULE('classSearchIsAbstract', () => {
+        this.CONSUME(AbstractKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'abstractValue' });
     });
 }
 

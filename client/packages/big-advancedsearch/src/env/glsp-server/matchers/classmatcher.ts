@@ -11,6 +11,7 @@ import type { ClassDiagram } from '@borkdominik-biguml/uml-model-server/grammar'
 import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
 import { SharedElementCollector } from './sharedcollector.js';
+import { SearchCriteria } from './visitor.js';
 
 export class ClassDiagramMatcher implements IMatcher {
     private readonly supportedTypes = [
@@ -173,5 +174,32 @@ export class ClassDiagramMatcher implements IMatcher {
         }
 
         return results;
+    }
+
+    matchAdvanced(diagram: ClassDiagram, criteria: SearchCriteria): SearchResult[] {
+        const allResults = this.match(diagram);
+
+        return allResults.filter(res => {
+            if (res.type.toLowerCase() !== criteria.type.toLowerCase()) return false;
+
+            if (criteria.name && !res.name?.toLowerCase().includes(criteria.name.toLowerCase())) {
+                return false;
+            }
+
+            if (criteria.isAbstract !== undefined) {
+                const rawElement = this.findRawElement(diagram, res.id);
+                if (rawElement?.isAbstract !== criteria.isAbstract) return false;
+            }
+
+            return true;
+        });
+    }
+
+    private findRawElement(diagram: any, id: string): any {
+        let found: any = undefined;
+        SharedElementCollector.collectRecursively(diagram, el => {
+            if (el.__id === id) found = el;
+        });
+        return found;
     }
 }
