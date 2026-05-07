@@ -40,14 +40,22 @@ export class AdvancedSearchActionHandler implements ActionHandler {
     protected handleSearch(action: RequestAdvancedSearchAction): any[] {
         const diagram = this.modelState.semanticRoot.diagram;
         const rawQuery = action.query.trim();
-        
-        try {
-            const criteria = buildAst(rawQuery);
 
+        try {
             const results: SearchResult[] = [];
+
             for (const matcher of this.matchers) {
+                const candidates = matcher.match(diagram);
+
+                if (rawQuery.length === 0) {
+                    results.push(...candidates);
+                    continue;
+                }
+
+                const criteria = buildAst(rawQuery);
+
                 if (matcher instanceof ClassDiagramMatcher) {
-                    results.push(...matcher.matchAdvanced(diagram, criteria));
+                    results.push(...matcher.matchAdvanced(candidates, criteria));
                 }
             }
 
