@@ -7,11 +7,11 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import type { ClassDiagram } from '@borkdominik-biguml/uml-model-server/grammar';
+import type { ClassDiagram, ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
 import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
 import { SharedElementCollector } from './sharedcollector.js';
-import type { BetterSearchCriteria, BetterSearchFilter, SearchCriteria } from './visitor.js';
+import type { BetterSearchCriteria, BetterSearchFilter } from './visitor.js';
 
 export class ClassDiagramMatcher implements IMatcher {
     private readonly supportedTypes = [
@@ -176,20 +176,23 @@ export class ClassDiagramMatcher implements IMatcher {
         return results;
     }
 
-    matchAdvanced(candidates: SearchResult[], criteria: BetterSearchCriteria): SearchResult[] {
-        return candidates.filter(candidate => this.matchesCriteria(candidate, criteria));
+    matchAdvanced(diagram: ClassDiagram, criteria: BetterSearchCriteria): SearchResult[] {
+        const candidates = this.match(diagram);
+        const diagramIndex = this.buildDiagramIndex(diagram);
+
+        return candidates.filter(candidate => this.matchesCriteria(candidate, criteria, diagramIndex));
     }
 
-    private matchesCriteria(candidate: SearchResult, criteria: BetterSearchCriteria): boolean {
-        const ownMatch = this.matchesType(candidate, criteria.type) && this.matchesFilters(candidate, criteria.filters ?? []);
+    private matchesCriteria(candidate: SearchResult, criteria: BetterSearchCriteria, diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): boolean {
+        const ownMatch = this.matchesType(candidate, criteria.type) && this.matchesFilters(candidate, criteria.filters ?? [], diagramIndex);
 
         if (!criteria.left && !criteria.right) {
             return ownMatch;
         }
 
-        const leftMatch = criteria.left ? this.matchesCriteria(candidate, criteria.left) : true;
+        const leftMatch = criteria.left ? this.matchesCriteria(candidate, criteria.left, diagramIndex) : true;
 
-        const rightMatch = criteria.right ? this.matchesCriteria(candidate, criteria.right) : true;
+        const rightMatch = criteria.right ? this.matchesCriteria(candidate, criteria.right, diagramIndex) : true;
 
         const combinator = criteria.combinator ?? 'AND';
 
@@ -198,12 +201,12 @@ export class ClassDiagramMatcher implements IMatcher {
         return ownMatch && childrenMatch;
     }
 
-    private matchesFilters(candidate: SearchResult, filters: BetterSearchFilter[]): boolean {
-        return filters.every(filter => this.matchesFilter(candidate, filter));
+    private matchesFilters(candidate: SearchResult, filters: BetterSearchFilter[], diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): boolean {
+        return filters.every(filter => this.matchesFilter(candidate, filter, diagramIndex));
     }
 
-    private matchesFilter(candidate: SearchResult, filter: BetterSearchFilter): boolean {
-        const actual = this.getSearchResultValue(candidate, filter.key);
+    private matchesFilter(candidate: SearchResult, filter: BetterSearchFilter, diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): boolean {
+        const actual = this.getSearchResultValue(candidate, filter.key, diagramIndex);
         const expected = filter.value.value;
 
         switch (filter.operator) {
@@ -211,6 +214,8 @@ export class ClassDiagramMatcher implements IMatcher {
                 if (actual === undefined || actual === null) return false;
 
                 return String(actual).toLowerCase().includes(String(expected).toLowerCase());
+                // filter.key = 'name' and this is on purpose
+                // actual has a property 'name' which is the name of the element, but the filter value is directly on the filter.value.value property, so we need to compare actual.name with expected
 
             case 'equals':
                 if (typeof expected === 'boolean') {
@@ -234,21 +239,20 @@ export class ClassDiagramMatcher implements IMatcher {
         }
     }
 
-    private getSearchResultValue(candidate: SearchResult, key: string): unknown {
-        switch (key) {
-            case 'id':
-                return candidate.id;
-            case 'type':
-                return candidate.type;
-            case 'name':
-                return candidate.name;
-            case 'parentName':
-                return candidate.parentName;
-            case 'details':
-                return candidate.details;
-            default:
-                return undefined;
-        }
+    private getSearchResultValue(candidate: SearchResult, key: string, diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): any {
+        const element = diagramIndex.get(candidate.id);
+        return element ? (element as any)[key] : undefined;
+    }
+
+    private buildDiagramIndex(diagram: ClassDiagram): Map<string, ClassDiagramNodes | ClassDiagramEdges> {
+        const diagramIndex = new Map<string, ClassDiagramNodes | ClassDiagramEdges>();
+        SharedElementCollector.collectRecursively(diagram as any, element => {
+            if (element?.__id) {
+                diagramIndex.set(element.__id, element);
+            }
+        });
+
+        return diagramIndex;
     }
 
     private matchesType(candidate: SearchResult, criteriaType: string): boolean {

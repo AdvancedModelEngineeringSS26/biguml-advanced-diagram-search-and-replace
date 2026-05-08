@@ -45,17 +45,17 @@ export class AdvancedSearchActionHandler implements ActionHandler {
             const results: SearchResult[] = [];
 
             for (const matcher of this.matchers) {
-                const candidates = matcher.match(diagram);
+                const diagramCopy = diagram;
 
                 if (rawQuery.length === 0) {
-                    results.push(...candidates);
+                    results.push(...matcher.match(diagramCopy));
                     continue;
                 }
 
                 const criteria = buildAst(rawQuery);
 
                 if (matcher instanceof ClassDiagramMatcher) {
-                    results.push(...matcher.matchAdvanced(candidates, criteria));
+                    results.push(...matcher.matchAdvanced(diagramCopy, criteria));
                 }
             }
 

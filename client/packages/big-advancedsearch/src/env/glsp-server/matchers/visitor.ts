@@ -11,13 +11,6 @@ import { parse, parser } from './parser.js';
 
 const BaseCstVisitor = parser.getBaseCstVisitorConstructor();
 
-// Define a structure for our search criteria
-export interface SearchCriteria {
-    type: string;
-    name?: string;
-    isAbstract?: boolean;
-}
-
 export interface BetterSearchCriteria {
     type: string; // will be Class or Relationship
     combinator?: 'AND' | 'OR';
@@ -66,9 +59,10 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         return betterCriteria;
     }
 
-    classSearchAttribute(children: any) {
+    classSearchAttribute(children: any): BetterSearchFilter {
         if (children.classSearchName) return this.visit(children.classSearchName);
         if (children.classSearchIsAbstract) return this.visit(children.classSearchIsAbstract);
+        return undefined as any;
     }
 
     classSearchName(children: any): BetterSearchFilter {
