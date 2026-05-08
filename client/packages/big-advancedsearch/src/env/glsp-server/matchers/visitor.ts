@@ -60,6 +60,7 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
     }
 
     classSearchAttribute(children: any): BetterSearchFilter {
+        if (children.classSearchNameSimilar) return this.visit(children.classSearchNameSimilar);
         if (children.classSearchName) return this.visit(children.classSearchName);
         if (children.classSearchIsAbstract) return this.visit(children.classSearchIsAbstract);
         if (children.classSearchIsActive) return this.visit(children.classSearchIsActive);
@@ -70,13 +71,24 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         return {
             type: 'ClassNameFilter',
             key: 'name',
+            operator: 'equals',
+            value: {
+                type: 'string',
+                value: children.className[0].image
+            }
+        };
+    }
+
+    classSearchNameSimilar(children: any): BetterSearchFilter {
+        return {
+            type: 'ClassNameSimilarFilter',
+            key: 'name',
             operator: 'contains',
             value: {
                 type: 'string',
                 value: children.className[0].image
             }
         };
-        // return { name: children.className[0].image };
     }
 
     classSearchIsAbstract(children: any): BetterSearchFilter {

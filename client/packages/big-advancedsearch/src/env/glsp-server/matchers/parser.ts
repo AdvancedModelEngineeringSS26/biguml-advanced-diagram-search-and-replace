@@ -11,7 +11,8 @@ import {
     Equals,
     Comma,
     AbstractKeyword,
-    ActiveKeyword
+    ActiveKeyword,
+    Similar
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -41,14 +42,22 @@ export class ModelParser extends CstParser {
     // New rule to handle the different types of key-value pairs
     public classSearchAttribute = this.RULE('classSearchAttribute', () => {
         this.OR([
-            { ALT: () => this.SUBRULE(this.classSearchName) }, 
-            { ALT: () => this.SUBRULE(this.classSearchIsAbstract) }, 
-            { ALT: () => this.SUBRULE(this.classSearchIsActive) }]);
+            { ALT: () => this.SUBRULE(this.classSearchName) },
+            { ALT: () => this.SUBRULE(this.classSearchNameSimilar) },
+            { ALT: () => this.SUBRULE(this.classSearchIsAbstract) },
+            { ALT: () => this.SUBRULE(this.classSearchIsActive) }
+        ]);
     });
 
     public classSearchName = this.RULE('classSearchName', () => {
         this.CONSUME(NameKeyword);
         this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'className' });
+    });
+
+    public classSearchNameSimilar = this.RULE('classSearchNameSimilar', () => {
+        this.CONSUME(NameKeyword);
+        this.CONSUME(Similar);
         this.CONSUME(StringIdentifier, { LABEL: 'className' });
     });
 

@@ -54,6 +54,11 @@ export const RightSquareBracket = createToken({
 
 export const Equals = createToken({
     name: 'Equals',
+    pattern: /==/
+});
+
+export const Similar = createToken({
+    name: 'Similar',
     pattern: /=/
 });
 
@@ -73,6 +78,7 @@ export const allTokens = [
     AbstractKeyword,
     ActiveKeyword,
     Equals,
+    Similar,
     Comma,
     LeftSquareBracket,
     RightSquareBracket,
