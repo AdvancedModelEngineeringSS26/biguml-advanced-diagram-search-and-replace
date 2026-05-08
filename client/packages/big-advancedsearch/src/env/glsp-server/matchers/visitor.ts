@@ -62,6 +62,7 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
     classSearchAttribute(children: any): BetterSearchFilter {
         if (children.classSearchName) return this.visit(children.classSearchName);
         if (children.classSearchIsAbstract) return this.visit(children.classSearchIsAbstract);
+        if (children.classSearchIsActive) return this.visit(children.classSearchIsActive);
         return undefined as any;
     }
 
@@ -83,6 +84,19 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         return {
             type: 'IsAbstractFilter',
             key: 'isAbstract',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    classSearchIsActive(children: any): BetterSearchFilter {
+        const val = children.activeValue[0].image.toLowerCase();
+        return {
+            type: 'IsActiveFilter',
+            key: 'isActive',
             operator: 'equals',
             value: {
                 type: 'boolean',

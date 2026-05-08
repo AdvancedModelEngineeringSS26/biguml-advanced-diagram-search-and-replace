@@ -10,7 +10,8 @@ import {
     NameKeyword,
     Equals,
     Comma,
-    AbstractKeyword
+    AbstractKeyword,
+    ActiveKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -41,8 +42,8 @@ export class ModelParser extends CstParser {
     public classSearchAttribute = this.RULE('classSearchAttribute', () => {
         this.OR([
             { ALT: () => this.SUBRULE(this.classSearchName) }, 
-            { ALT: () => this.SUBRULE(this.classSearchIsAbstract) }]
-        );
+            { ALT: () => this.SUBRULE(this.classSearchIsAbstract) }, 
+            { ALT: () => this.SUBRULE(this.classSearchIsActive) }]);
     });
 
     public classSearchName = this.RULE('classSearchName', () => {
@@ -55,6 +56,12 @@ export class ModelParser extends CstParser {
         this.CONSUME(AbstractKeyword);
         this.CONSUME(Equals);
         this.CONSUME(StringIdentifier, { LABEL: 'abstractValue' });
+    });
+
+    public classSearchIsActive = this.RULE('classSearchIsActive', () => {
+        this.CONSUME(ActiveKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'activeValue' });
     });
 }
 

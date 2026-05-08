@@ -36,6 +36,12 @@ export const AbstractKeyword = createToken({
     longer_alt: StringIdentifier
 });
 
+export const ActiveKeyword = createToken({
+    name: 'ActiveKeyword',
+    pattern: /isActive/i,
+    longer_alt: StringIdentifier
+});
+
 export const LeftSquareBracket = createToken({
     name: 'LeftSquareBracket',
     pattern: /\[/
@@ -65,6 +71,7 @@ export const allTokens = [
     ClassKeyword,
     NameKeyword,
     AbstractKeyword,
+    ActiveKeyword,
     Equals,
     Comma,
     LeftSquareBracket,
