@@ -17,6 +17,9 @@ export interface BetterSearchCriteria {
     left?: BetterSearchCriteria;
     right?: BetterSearchCriteria;
     filters: BetterSearchFilter[];
+
+    propertyFilters?: BetterSearchFilter[];
+    operationFilters?: BetterSearchFilter[];
 }
 
 export interface BetterSearchFilter {
@@ -43,8 +46,9 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         const type = children.ClassKeyword?.[0]?.image ?? 'Class';
 
         const betterCriteria: BetterSearchCriteria = {
-            type: type,
-            filters: []
+            type,
+            filters: [],
+            propertyFilters: []
         };
 
         if (children.classSearchAttribute) {
@@ -56,7 +60,35 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
             });
         }
 
+        if (children.propertySearchAttribute) {
+            children.propertySearchAttribute.forEach((attrCst: any) => {
+                const attr = this.visit(attrCst);
+                if (attr) {
+                    betterCriteria.propertyFilters!.push(attr);
+                }
+            });
+        }
+
         return betterCriteria;
+    }
+
+    propertySearchAttribute(children: any): BetterSearchFilter {
+        if (children.propertySearchIsDerived) return this.visit(children.propertySearchIsDerived);
+        return undefined as any;
+    }
+
+    propertySearchIsDerived(children: any): BetterSearchFilter {
+        const val = children.derivedValue[0].image.toLowerCase();
+
+        return {
+            type: 'IsDerivedFilter',
+            key: 'isDerived',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
     }
 
     classSearchAttribute(children: any): BetterSearchFilter {

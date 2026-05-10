@@ -30,6 +30,12 @@ export const ClassKeyword = createToken({
     longer_alt: StringIdentifier
 });
 
+export const PropertyKeyword = createToken({
+    name: 'PropertyKeyword',
+    pattern: /Property/i,
+    longer_alt: StringIdentifier
+});
+
 export const AbstractKeyword = createToken({
     name: 'AbstractKeyword',
     pattern: /isAbstract/i,
@@ -39,6 +45,12 @@ export const AbstractKeyword = createToken({
 export const ActiveKeyword = createToken({
     name: 'ActiveKeyword',
     pattern: /isActive/i,
+    longer_alt: StringIdentifier
+});
+
+export const DerivedKeyword = createToken({
+    name: 'DerivedKeyword',
+    pattern: /isDerived/i,
     longer_alt: StringIdentifier
 });
 
@@ -55,6 +67,11 @@ export const RightSquareBracket = createToken({
 export const Equals = createToken({
     name: 'Equals',
     pattern: /==/
+});
+
+export const GreaterThan = createToken({
+    name: 'GreaterThan',
+    pattern: />/
 });
 
 export const Similar = createToken({
@@ -76,7 +93,10 @@ export const allTokens = [
     ClassKeyword,
     NameKeyword,
     AbstractKeyword,
+    DerivedKeyword,
     ActiveKeyword,
+    PropertyKeyword,
+    GreaterThan,
     Equals,
     Similar,
     Comma,

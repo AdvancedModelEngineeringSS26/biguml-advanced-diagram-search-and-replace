@@ -12,7 +12,10 @@ import {
     Comma,
     AbstractKeyword,
     ActiveKeyword,
-    Similar
+    Similar,
+    GreaterThan,
+    PropertyKeyword,
+    DerivedKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -37,6 +40,18 @@ export class ModelParser extends CstParser {
             });
             this.CONSUME(RightSquareBracket);
         });
+        this.OPTION2(() => {
+            this.CONSUME(GreaterThan);
+            this.CONSUME(PropertyKeyword);
+            this.CONSUME2(LeftSquareBracket);
+            this.MANY_SEP2({
+                SEP: Comma,
+                DEF: () => {
+                    this.SUBRULE(this.propertySearchAttribute);
+                }
+            });
+            this.CONSUME2(RightSquareBracket);
+        });
     });
 
     // New rule to handle the different types of key-value pairs
@@ -47,6 +62,18 @@ export class ModelParser extends CstParser {
             { ALT: () => this.SUBRULE(this.classSearchIsAbstract) },
             { ALT: () => this.SUBRULE(this.classSearchIsActive) }
         ]);
+    });
+
+    public propertySearchAttribute = this .RULE('propertySearchAttribute', () => {
+        this.OR([
+            { ALT: () => this.SUBRULE(this.propertySearchIsDerived) }
+        ]);
+    });
+
+    public propertySearchIsDerived = this.RULE('propertySearchIsDerived', () => {
+        this.CONSUME(DerivedKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'derivedValue' });
     });
 
     public classSearchName = this.RULE('classSearchName', () => {

@@ -183,11 +183,23 @@ export class ClassDiagramMatcher implements IMatcher {
         return candidates.filter(candidate => this.matchesCriteria(candidate, criteria, diagramIndex));
     }
 
-    private matchesCriteria(candidate: SearchResult, criteria: BetterSearchCriteria, diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): boolean {
-        const ownMatch = this.matchesType(candidate, criteria.type) && this.matchesFilters(candidate, criteria.filters ?? [], diagramIndex);
+    private matchesCriteria(
+        candidate: SearchResult,
+        criteria: BetterSearchCriteria,
+        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
+    ): boolean {
+        const element = diagramIndex.get(candidate.id);
+
+        const ownMatch = this.matchesType(candidate, criteria.type) && this.matchesFiltersOnElement(element, criteria.filters ?? []);
+
+        const propertyMatch = this.matchesNestedFilters(element, 'properties', criteria.propertyFilters ?? []);
+
+        const operationMatch = this.matchesNestedFilters(element, 'operations', criteria.operationFilters ?? []);
+
+        const selfMatch = ownMatch && propertyMatch && operationMatch;
 
         if (!criteria.left && !criteria.right) {
-            return ownMatch;
+            return selfMatch;
         }
 
         const leftMatch = criteria.left ? this.matchesCriteria(candidate, criteria.left, diagramIndex) : true;
@@ -195,17 +207,82 @@ export class ClassDiagramMatcher implements IMatcher {
         const rightMatch = criteria.right ? this.matchesCriteria(candidate, criteria.right, diagramIndex) : true;
 
         const combinator = criteria.combinator ?? 'AND';
-
         const childrenMatch = combinator === 'OR' ? leftMatch || rightMatch : leftMatch && rightMatch;
 
-        return ownMatch && childrenMatch;
+        return selfMatch && childrenMatch;
     }
 
-    private matchesFilters(candidate: SearchResult, filters: BetterSearchFilter[], diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): boolean {
+    private matchesFiltersOnElement(element: unknown, filters: BetterSearchFilter[]): boolean {
+        if (!element) return false;
+
+        return filters.every(filter => this.matchesFilterOnElement(element, filter));
+    }
+
+    private matchesNestedFilters(element: unknown, collectionKey: 'properties' | 'operations', filters: BetterSearchFilter[]): boolean {
+        if (filters.length === 0) {
+            return true;
+        }
+
+        if (!element) {
+            return false;
+        }
+
+        const collection = (element as any)[collectionKey];
+
+        if (!Array.isArray(collection)) {
+            return false;
+        }
+
+        // Important: all filters must match the SAME nested element.
+        return collection.some(child => filters.every(filter => this.matchesFilterOnElement(child, filter)));
+    }
+
+    private matchesFilterOnElement(element: unknown, filter: BetterSearchFilter): boolean {
+        const actual = (element as any)?.[filter.key];
+        const expected = this.normalizeExpectedValue(filter);
+
+        switch (filter.operator) {
+            case 'contains':
+                if (actual === undefined || actual === null) return false;
+                return String(actual).toLowerCase().includes(String(expected).toLowerCase());
+
+            case 'equals':
+                return String(actual).toLowerCase() === String(expected).toLowerCase();
+
+            case 'startsWith':
+                if (actual === undefined || actual === null) return false;
+                return String(actual).toLowerCase().startsWith(String(expected).toLowerCase());
+
+            case 'endsWith':
+                if (actual === undefined || actual === null) return false;
+                return String(actual).toLowerCase().endsWith(String(expected).toLowerCase());
+
+            default:
+                return false;
+        }
+    }
+
+    private normalizeExpectedValue(filter: BetterSearchFilter): string | boolean {
+        if (filter.value.type === 'boolean') {
+            return filter.value.value.toLowerCase() === 'true';
+        }
+
+        return filter.value.value;
+    }
+
+    private matchesFilters(
+        candidate: SearchResult,
+        filters: BetterSearchFilter[],
+        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
+    ): boolean {
         return filters.every(filter => this.matchesFilter(candidate, filter, diagramIndex));
     }
 
-    private matchesFilter(candidate: SearchResult, filter: BetterSearchFilter, diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): boolean {
+    private matchesFilter(
+        candidate: SearchResult,
+        filter: BetterSearchFilter,
+        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
+    ): boolean {
         const actual = this.getSearchResultValue(candidate, filter.key, diagramIndex);
         const expected = filter.value.value;
 
@@ -214,8 +291,8 @@ export class ClassDiagramMatcher implements IMatcher {
                 if (actual === undefined || actual === null) return false;
 
                 return String(actual).toLowerCase().includes(String(expected).toLowerCase());
-                // filter.key = 'name' and this is on purpose
-                // actual has a property 'name' which is the name of the element, but the filter value is directly on the filter.value.value property, so we need to compare actual.name with expected
+            // filter.key = 'name' and this is on purpose
+            // actual has a property 'name' which is the name of the element, but the filter value is directly on the filter.value.value property, so we need to compare actual.name with expected
 
             case 'equals':
                 if (typeof expected === 'boolean') {
@@ -239,7 +316,11 @@ export class ClassDiagramMatcher implements IMatcher {
         }
     }
 
-    private getSearchResultValue(candidate: SearchResult, key: string, diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>): any {
+    private getSearchResultValue(
+        candidate: SearchResult,
+        key: string,
+        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
+    ): any {
         const element = diagramIndex.get(candidate.id);
         return element ? (element as any)[key] : undefined;
     }
