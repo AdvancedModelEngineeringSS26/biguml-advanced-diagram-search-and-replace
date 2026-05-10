@@ -30,9 +30,15 @@ export const ClassKeyword = createToken({
     longer_alt: StringIdentifier
 });
 
-export const PropertyKeyword = createToken({
-    name: 'PropertyKeyword',
-    pattern: /Property/i,
+export const AttributeKeyword = createToken({
+    name: 'AttributeKeyword',
+    pattern: /Attribute/i,
+    longer_alt: StringIdentifier
+});
+
+export const MethodKeyword = createToken({
+    name: 'MethodKeyword',
+    pattern: /Method/i,
     longer_alt: StringIdentifier
 });
 
@@ -51,6 +57,12 @@ export const ActiveKeyword = createToken({
 export const DerivedKeyword = createToken({
     name: 'DerivedKeyword',
     pattern: /isDerived/i,
+    longer_alt: StringIdentifier
+});
+
+export const StaticKeyword = createToken({
+    name: 'StaticKeyword',
+    pattern: /isStatic/i,
     longer_alt: StringIdentifier
 });
 
@@ -92,10 +104,12 @@ export const allTokens = [
     // "keywords" appear before the Identifier
     ClassKeyword,
     NameKeyword,
+    MethodKeyword,
     AbstractKeyword,
     DerivedKeyword,
     ActiveKeyword,
-    PropertyKeyword,
+    StaticKeyword,
+    AttributeKeyword,
     GreaterThan,
     Equals,
     Similar,

@@ -48,7 +48,8 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         const betterCriteria: BetterSearchCriteria = {
             type,
             filters: [],
-            propertyFilters: []
+            propertyFilters: [],
+            operationFilters: []
         };
 
         if (children.classSearchAttribute) {
@@ -60,8 +61,8 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
             });
         }
 
-        if (children.propertySearchAttribute) {
-            children.propertySearchAttribute.forEach((attrCst: any) => {
+        if (children.attributeSearchAttribute) {
+            children.attributeSearchAttribute.forEach((attrCst: any) => {
                 const attr = this.visit(attrCst);
                 if (attr) {
                     betterCriteria.propertyFilters!.push(attr);
@@ -69,20 +70,48 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
             });
         }
 
+        if (children.methodSearchAttribute) {
+            children.methodSearchAttribute.forEach((attrCst: any) => {
+                const attr = this.visit(attrCst);
+                if (attr) {
+                    betterCriteria.operationFilters!.push(attr);
+                }
+            });
+        }
+
         return betterCriteria;
     }
 
-    propertySearchAttribute(children: any): BetterSearchFilter {
-        if (children.propertySearchIsDerived) return this.visit(children.propertySearchIsDerived);
+    attributeSearchAttribute(children: any): BetterSearchFilter {
+        if (children.attributeSearchIsDerived) return this.visit(children.attributeSearchIsDerived);
         return undefined as any;
     }
 
-    propertySearchIsDerived(children: any): BetterSearchFilter {
+    attributeSearchIsDerived(children: any): BetterSearchFilter {
         const val = children.derivedValue[0].image.toLowerCase();
 
         return {
             type: 'IsDerivedFilter',
             key: 'isDerived',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    methodSearchAttribute(children: any): BetterSearchFilter {
+        if (children.methodSearchIsStatic) return this.visit(children.methodSearchIsStatic);
+        return undefined as any;
+    }
+
+    methodSearchIsStatic(children: any): BetterSearchFilter {
+        const val = children.staticValue[0].image.toLowerCase();
+
+        return {
+            type: 'IsStaticFilter',
+            key: 'isStatic',
             operator: 'equals',
             value: {
                 type: 'boolean',

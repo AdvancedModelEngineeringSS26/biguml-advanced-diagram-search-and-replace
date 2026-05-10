@@ -14,8 +14,10 @@ import {
     ActiveKeyword,
     Similar,
     GreaterThan,
-    PropertyKeyword,
-    DerivedKeyword
+    AttributeKeyword,
+    MethodKeyword,
+    DerivedKeyword,
+    StaticKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -30,27 +32,50 @@ export class ModelParser extends CstParser {
 
     public classSearch = this.RULE('classSearch', () => {
         this.CONSUME(ClassKeyword);
+
         this.OPTION(() => {
             this.CONSUME(LeftSquareBracket);
+
             this.MANY_SEP({
                 SEP: Comma,
                 DEF: () => {
                     this.SUBRULE(this.classSearchAttribute);
                 }
             });
+
             this.CONSUME(RightSquareBracket);
         });
+
         this.OPTION2(() => {
             this.CONSUME(GreaterThan);
-            this.CONSUME(PropertyKeyword);
+            this.CONSUME(AttributeKeyword);
+
             this.CONSUME2(LeftSquareBracket);
+
             this.MANY_SEP2({
                 SEP: Comma,
                 DEF: () => {
-                    this.SUBRULE(this.propertySearchAttribute);
+                    this.SUBRULE(this.attributeSearchAttribute);
                 }
             });
+
             this.CONSUME2(RightSquareBracket);
+        });
+
+        this.OPTION3(() => {
+            this.CONSUME2(GreaterThan);
+            this.CONSUME(MethodKeyword);
+
+            this.CONSUME3(LeftSquareBracket);
+
+            this.MANY_SEP3({
+                SEP: Comma,
+                DEF: () => {
+                    this.SUBRULE(this.methodSearchAttribute);
+                }
+            });
+
+            this.CONSUME3(RightSquareBracket);
         });
     });
 
@@ -64,13 +89,15 @@ export class ModelParser extends CstParser {
         ]);
     });
 
-    public propertySearchAttribute = this .RULE('propertySearchAttribute', () => {
-        this.OR([
-            { ALT: () => this.SUBRULE(this.propertySearchIsDerived) }
-        ]);
+    public methodSearchAttribute = this.RULE('methodSearchAttribute', () => {
+        this.OR([{ ALT: () => this.SUBRULE(this.methodSearchIsStatic) }]);
     });
 
-    public propertySearchIsDerived = this.RULE('propertySearchIsDerived', () => {
+    public attributeSearchAttribute = this.RULE('attributeSearchAttribute', () => {
+        this.OR([{ ALT: () => this.SUBRULE(this.attributeSearchIsDerived) }]);
+    });
+
+    public attributeSearchIsDerived = this.RULE('attributeSearchIsDerived', () => {
         this.CONSUME(DerivedKeyword);
         this.CONSUME(Equals);
         this.CONSUME(StringIdentifier, { LABEL: 'derivedValue' });
@@ -98,6 +125,12 @@ export class ModelParser extends CstParser {
         this.CONSUME(ActiveKeyword);
         this.CONSUME(Equals);
         this.CONSUME(StringIdentifier, { LABEL: 'activeValue' });
+    });
+
+    public methodSearchIsStatic = this.RULE('methodSearchIsStatic', () => {
+        this.CONSUME(StaticKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'staticValue' });
     });
 }
 
