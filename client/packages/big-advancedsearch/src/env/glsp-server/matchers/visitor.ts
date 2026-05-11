@@ -7,30 +7,19 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
+// visitor.ts
+
 import { parse, parser } from './parser.js';
+import type {
+    SearchCriteria,
+    SearchElementType,
+    SearchFilter,
+    SearchOperator,
+    SearchValue
+} from './search-ast.js';
+import { findFilterSpec } from './search-schema.js';
 
 const BaseCstVisitor = parser.getBaseCstVisitorConstructor();
-
-export interface BetterSearchCriteria {
-    type: string; // will be Class or Relationship
-    combinator?: 'AND' | 'OR';
-    left?: BetterSearchCriteria;
-    right?: BetterSearchCriteria;
-    filters: BetterSearchFilter[];
-
-    propertyFilters?: BetterSearchFilter[];
-    operationFilters?: BetterSearchFilter[];
-}
-
-export interface BetterSearchFilter {
-    type: string; 
-    key: string;
-    operator: string;
-    value: {
-        type: string;
-        value: string;
-    }
-}
 
 class ModelAstBuilderVisitor extends BaseCstVisitor {
     constructor() {
@@ -38,263 +27,134 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         this.validateVisitor();
     }
 
-    expression(children: any): BetterSearchCriteria {
-        return this.visit(children.classSearch);
+    expression(children: any): SearchCriteria {
+        return this.visit(children.searchElement);
     }
 
-    classSearch(children: any): BetterSearchCriteria {
-        const type = children.ClassKeyword?.[0]?.image ?? 'Class';
+    searchElement(children: any): SearchCriteria {
+        const type = this.visit(children.elementType) as SearchElementType;
 
-        const betterCriteria: BetterSearchCriteria = {
+        const criteria: SearchCriteria = {
             type,
             filters: [],
-            propertyFilters: [],
-            operationFilters: []
+            children: []
         };
 
-        if (children.classSearchAttribute) {
-            children.classSearchAttribute.forEach((attrCst: any) => {
-                const attr = this.visit(attrCst);
-                if (attr) {
-                    betterCriteria.filters.push(attr);
-                }
-            });
+        if (children.filterList) {
+            criteria.filters = this.visit(children.filterList);
         }
 
-        if (children.attributeSearchAttribute) {
-            children.attributeSearchAttribute.forEach((attrCst: any) => {
-                const attr = this.visit(attrCst);
-                if (attr) {
-                    betterCriteria.propertyFilters!.push(attr);
-                }
-            });
+        if (children.searchElement) {
+            criteria.children = children.searchElement.map((child: any) => this.visit(child));
         }
 
-        if (children.methodSearchAttribute) {
-            children.methodSearchAttribute.forEach((attrCst: any) => {
-                const attr = this.visit(attrCst);
-                if (attr) {
-                    betterCriteria.operationFilters!.push(attr);
-                }
-            });
+        this.validateFilters(criteria);
+
+        return criteria;
+    }
+
+    elementType(children: any): SearchElementType {
+        if (children.ClassKeyword) return 'Class';
+        if (children.AttributeKeyword) return 'Attribute';
+        if (children.MethodKeyword) return 'Method';
+        if (children.RelationshipKeyword) return 'Relationship';
+
+        throw new Error('Unknown search element type.');
+    }
+
+    filterList(children: any): SearchFilter[] {
+        if (!children.filter) {
+            return [];
         }
 
-        return betterCriteria;
+        return children.filter.map((filterCst: any) => this.visit(filterCst));
     }
 
-    attributeSearchAttribute(children: any): BetterSearchFilter {
-        if (children.attributeSearchIsDerived) return this.visit(children.attributeSearchIsDerived);
-        if (children.attributeSearchAggregation) return this.visit(children.attributeSearchAggregation);
-        if (children.attributeSearchVisibility) return this.visit(children.attributeSearchVisibility);
-        if (children.attributeSearchIsDerivedUnion) return this.visit(children.attributeSearchIsDerivedUnion);
-        if (children.attributeSearchIsReadOnly) return this.visit(children.attributeSearchIsReadOnly);
-        if (children.attributeSearchIsOrdered) return this.visit(children.attributeSearchIsOrdered);
-        if (children.attributeSearchIsUnique) return this.visit(children.attributeSearchIsUnique);
-        if (children.attributeSearchIsStatic) return this.visit(children.attributeSearchIsStatic);
-        return undefined as any;
-    }
-
-    attributeSearchIsDerived(children: any): BetterSearchFilter {
-        const val = children.derivedValue[0].image.toLowerCase();
+    filter(children: any): SearchFilter {
+        const key = children.key[0].image;
+        const operator = this.visit(children.operator) as SearchOperator;
+        const value = this.visit(children.value) as SearchValue;
 
         return {
-            type: 'IsDerivedFilter',
-            key: 'isDerived',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
+            key,
+            operator,
+            value
         };
     }
 
-    attributeSearchIsDerivedUnion(children: any): BetterSearchFilter {
-        const val = children.derivedUnionValue[0].image.toLowerCase();
+    operator(children: any): SearchOperator {
+        if (children.Equals) return 'equals';
+        if (children.Similar) return 'contains';
 
-        return {
-            type: 'IsDerivedUnionFilter',
-            key: 'isDerivedUnion',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
-        };
+        throw new Error('Unknown operator.');
     }
 
-    attributeSearchAggregation(children: any): BetterSearchFilter {
-        return {
-            type: 'AggregationFilter',
-            key: 'aggregation',
-            operator: 'equals',
-            value: {
+    value(children: any): SearchValue {
+        const token =
+            children.StringLiteral?.[0] ??
+            children.BooleanLiteral?.[0] ??
+            children.IntegerLiteral?.[0] ??
+            children.Identifier?.[0];
+
+        if (!token) {
+            throw new Error('Missing value.');
+        }
+
+        if (children.StringLiteral) {
+            return {
                 type: 'string',
-                value: children.aggregationValue[0].image.toLowerCase()
-            }
-        };
-    }
+                value: this.unquote(token.image)
+            };
+        }
 
-    attributeSearchVisibility(children: any): BetterSearchFilter {
-        return {
-            type: 'VisibilityFilter',
-            key: 'visibility',
-            operator: 'equals',
-            value: {
-                type: 'string',
-                value: children.visibilityValue[0].image.toLowerCase()
-            }
-        };
-    }
-
-    attributeSearchIsReadOnly(children: any): BetterSearchFilter {
-        const val = children.readOnlyValue[0].image.toLowerCase();
-        return {
-            type: 'IsReadOnlyFilter',
-            key: 'isReadOnly',
-            operator: 'equals',
-            value: {
+        if (children.BooleanLiteral) {
+            return {
                 type: 'boolean',
-                value: val
-            }
-        };
-    }
+                value: token.image.toLowerCase() === 'true'
+            };
+        }
 
-    attributeSearchIsOrdered(children: any): BetterSearchFilter {
-        const val = children.orderedValue[0].image.toLowerCase();
-        return {
-            type: 'IsOrderedFilter',
-            key: 'isOrdered',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
-        };
-    }
-
-    attributeSearchIsUnique(children: any): BetterSearchFilter {
-        const val = children.uniqueValue[0].image.toLowerCase();
-        return {
-            type: 'IsUniqueFilter',
-            key: 'isUnique',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
-        };
-    }
-
-    attributeSearchIsStatic(children: any): BetterSearchFilter {
-        const val = children.isStaticValue[0].image.toLowerCase();
-        return {
-            type: 'IsStaticFilter',
-            key: 'isStatic',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
-        };
-    }
-
-    methodSearchAttribute(children: any): BetterSearchFilter {
-        if (children.methodSearchIsStatic) return this.visit(children.methodSearchIsStatic);
-        return undefined as any;
-    }
-
-    methodSearchIsStatic(children: any): BetterSearchFilter {
-        const val = children.staticValue[0].image.toLowerCase();
+        if (children.IntegerLiteral) {
+            return {
+                type: 'number',
+                value: Number(token.image)
+            };
+        }
 
         return {
-            type: 'IsStaticFilter',
-            key: 'isStatic',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
+            type: 'string',
+            value: token.image
         };
     }
 
-    classSearchAttribute(children: any): BetterSearchFilter {
-        if (children.classSearchNameSimilar) return this.visit(children.classSearchNameSimilar);
-        if (children.classSearchName) return this.visit(children.classSearchName);
-        if (children.classSearchIsAbstract) return this.visit(children.classSearchIsAbstract);
-        if (children.classSearchIsActive) return this.visit(children.classSearchIsActive);
-        if (children.classSearchVisibility) return this.visit(children.classSearchVisibility);
-        return undefined as any;
+    private validateFilters(criteria: SearchCriteria): void {
+        for (const filter of criteria.filters) {
+            const spec = findFilterSpec(criteria.type, filter.key);
+
+            if (!spec) {
+                throw new Error(`Filter "${filter.key}" is not supported on ${criteria.type}.`);
+            }
+
+            if (filter.value.type !== spec.valueType) {
+                throw new Error(
+                    `Filter "${filter.key}" on ${criteria.type} expects ${spec.valueType}, but got ${filter.value.type}.`
+                );
+            }
+        }
+
+        for (const child of criteria.children) {
+            this.validateFilters(child);
+        }
     }
 
-    classSearchName(children: any): BetterSearchFilter {
-        return {
-            type: 'ClassNameFilter',
-            key: 'name',
-            operator: 'equals',
-            value: {
-                type: 'string',
-                value: children.className[0].image
-            }
-        };
-    }
-
-    classSearchNameSimilar(children: any): BetterSearchFilter {
-        return {
-            type: 'ClassNameSimilarFilter',
-            key: 'name',
-            operator: 'contains',
-            value: {
-                type: 'string',
-                value: children.className[0].image
-            }
-        };
-    }
-
-    classSearchIsAbstract(children: any): BetterSearchFilter {
-        const val = children.abstractValue[0].image.toLowerCase();
-        return {
-            type: 'IsAbstractFilter',
-            key: 'isAbstract',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
-        };
-    }
-
-    classSearchIsActive(children: any): BetterSearchFilter {
-        const val = children.activeValue[0].image.toLowerCase();
-        return {
-            type: 'IsActiveFilter',
-            key: 'isActive',
-            operator: 'equals',
-            value: {
-                type: 'boolean',
-                value: val
-            }
-        };
-    }
-
-    classSearchVisibility(children: any): BetterSearchFilter {
-        const val = children.visibilityValue[0].image.toLowerCase();
-        return {
-            type: 'VisibilityFilter',
-            key: 'visibility',
-            operator: 'equals',
-            value: {
-                type: 'string',
-                value: val
-            }
-        };
+    private unquote(value: string): string {
+        return value.slice(1, -1).replace(/\\"/g, '"');
     }
 }
 
 const astBuilder = new ModelAstBuilderVisitor();
 
-export function buildAst(text: string): BetterSearchCriteria {
+export function buildAst(text: string): SearchCriteria {
     const cst = parse(text);
-    const criteria = astBuilder.visit(cst) as BetterSearchCriteria;
-
-    return criteria;
+    return astBuilder.visit(cst) as SearchCriteria;
 }

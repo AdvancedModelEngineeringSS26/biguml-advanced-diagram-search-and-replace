@@ -44,26 +44,25 @@ export class AdvancedSearchActionHandler implements ActionHandler {
         try {
             const results: SearchResult[] = [];
 
-            for (const matcher of this.matchers) {
-                const diagramCopy = diagram;
-
-                if (rawQuery.length === 0) {
-                    results.push(...matcher.match(diagramCopy));
-                    continue;
+            if (rawQuery.length === 0) {
+                for (const matcher of this.matchers) {
+                    results.push(...matcher.match(diagram));
                 }
 
-                const criteria = buildAst(rawQuery);
+                return [AdvancedSearchActionResponse.create({ results })];
+            }
 
-                if (matcher instanceof ClassDiagramMatcher) {
-                    results.push(...matcher.matchAdvanced(diagramCopy, criteria));
+            const criteria = buildAst(rawQuery);
+
+            for (const matcher of this.matchers) {
+                if ('matchAdvanced' in matcher && typeof matcher.matchAdvanced === 'function') {
+                    results.push(...matcher.matchAdvanced(diagram, criteria));
                 }
             }
 
             return [AdvancedSearchActionResponse.create({ results })];
-        } catch (e) {
-            // FALLBACK: If the custom query fails to parse,
-            // you can either return an empty list or fall back to your old string split logic.
-            console.error('Could not parse query', e);
+        } catch (error) {
+            console.error('Could not parse query', error);
             return [AdvancedSearchActionResponse.create({ results: [] })];
         }
     }

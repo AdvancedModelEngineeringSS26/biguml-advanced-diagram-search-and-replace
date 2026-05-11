@@ -7,11 +7,19 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import type { ClassDiagram, ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
+// classmatcher.ts
+
+import type {
+    ClassDiagram,
+    ClassDiagramEdges,
+    ClassDiagramNodes
+} from '@borkdominik-biguml/uml-model-server/grammar';
+
 import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
 import { SharedElementCollector } from './sharedcollector.js';
-import type { BetterSearchCriteria, BetterSearchFilter } from './visitor.js';
+import type { SearchCriteria } from './search-ast.js';
+import { matchesCriteriaOnElement } from './matcher-utils.js';
 
 export class ClassDiagramMatcher implements IMatcher {
     private readonly supportedTypes = [
@@ -48,7 +56,7 @@ export class ClassDiagramMatcher implements IMatcher {
     }
 
     supportsPartial(partialType: string): boolean {
-        return this.supportedTypes.some(t => t.startsWith(partialType.toLowerCase()));
+        return this.supportedTypes.some(type => type.startsWith(partialType.toLowerCase()));
     }
 
     supportsList(): string[] {
@@ -57,113 +65,144 @@ export class ClassDiagramMatcher implements IMatcher {
 
     match(diagram: ClassDiagram): SearchResult[] {
         const results: SearchResult[] = [];
+        const idToName = this.collectIdToName(diagram);
+
+        this.collectNodeResults(diagram, results);
+        this.collectRelationResults(diagram, results, idToName);
+
+        return results;
+    }
+
+    matchAdvanced(diagram: ClassDiagram, criteria: SearchCriteria): SearchResult[] {
+        const candidates = this.match(diagram);
+        const diagramIndex = this.buildDiagramIndex(diagram);
+
+        return candidates.filter(candidate => {
+            const element = diagramIndex.get(candidate.id);
+            return matchesCriteriaOnElement(element, criteria);
+        });
+    }
+
+    private collectIdToName(diagram: ClassDiagram): Map<string, string> {
         const idToName = new Map<string, string>();
 
-        // First pass: collect all names for cross-reference resolution
         SharedElementCollector.collectRecursively(diagram as any, element => {
             if (element.__id && element.$type) {
                 idToName.set(element.__id, element.name ?? `<<${element.$type}>>`);
             }
         });
 
-        // Second pass: build search results from entities
+        return idToName;
+    }
+
+    private collectNodeResults(diagram: ClassDiagram, results: SearchResult[]): void {
         SharedElementCollector.collectRecursively(diagram as any, (element, parentName) => {
             const type = element.$type;
-            if (!type || !element.__id) return;
+            const id = element.__id;
+
+            if (!type || !id) {
+                return;
+            }
 
             const name = element.name ?? `<<${type}>>`;
-            const id = element.__id;
 
             switch (type) {
                 case 'Class':
                 case 'AbstractClass':
                 case 'Interface':
                 case 'DataType':
+                case 'Enumeration':
+                case 'PrimitiveType':
+                case 'Package':
+                case 'InstanceSpecification':
+                case 'LiteralSpecification':
                     results.push({ id, type, name, parentName });
                     break;
-                case 'Property': {
-                    const typeName = element.propertyType?.$refText;
+
+                case 'Property':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: typeName ? `${typeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined
+                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName)
                     });
                     break;
-                }
+
                 case 'Operation':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
                         details: parentName ? `In ${parentName}` : undefined
                     });
                     break;
-                case 'Parameter': {
-                    const paramTypeName = element.parameterType?.$refText;
+
+                case 'Parameter':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: paramTypeName ? `${paramTypeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined
+                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName)
                     });
                     break;
-                }
-                case 'Enumeration':
-                    results.push({ id, type, name, parentName });
-                    break;
+
                 case 'EnumerationLiteral':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
                         details: parentName ? `In Enumeration ${parentName}` : undefined
                     });
                     break;
-                case 'PrimitiveType':
-                case 'Package':
-                    results.push({ id, type, name, parentName });
-                    break;
-                case 'InstanceSpecification':
-                    results.push({ id, type, name, parentName });
-                    break;
-                case 'Slot': {
-                    const featureName = element.definingFeature?.$refText;
+
+                case 'Slot':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: featureName ? `Feature: ${featureName}` : undefined
+                        details: element.definingFeature?.$refText
+                            ? `Feature: ${element.definingFeature.$refText}`
+                            : undefined
                     });
-                    break;
-                }
-                case 'LiteralSpecification':
-                    results.push({ id, type, name: name ?? 'Unnamed', parentName });
                     break;
             }
         });
+    }
 
-        // Collect relations
+    private collectRelationResults(
+        diagram: ClassDiagram,
+        results: SearchResult[],
+        idToName: Map<string, string>
+    ): void {
         for (const relation of diagram.relations ?? []) {
             const type = relation.$type;
-            if (!type) continue;
+
+            if (!type || !relation.__id) {
+                continue;
+            }
 
             const sourceId = relation.source?.ref?.__id;
             const targetId = relation.target?.ref?.__id;
-            const sourceName = relation.source?.$refText ?? idToName.get(sourceId!) ?? '(unknown)';
-            const targetName = relation.target?.$refText ?? idToName.get(targetId!) ?? '(unknown)';
 
-            let name: string | undefined = undefined;
-            if ('name' in relation) {
-                name = `${relation.name}: ${sourceName} → ${targetName}`;
-            }
+            const sourceName =
+                relation.source?.$refText ??
+                idToName.get(sourceId ?? '') ??
+                '(unknown)';
 
-            const relationName = name ?? `${sourceName} → ${targetName}`;
+            const targetName =
+                relation.target?.$refText ??
+                idToName.get(targetId ?? '') ??
+                '(unknown)';
+
+            const relationName =
+                'name' in relation && relation.name
+                    ? `${relation.name}: ${sourceName} → ${targetName}`
+                    : `${sourceName} → ${targetName}`;
 
             results.push({
                 id: relation.__id,
@@ -172,199 +211,35 @@ export class ClassDiagramMatcher implements IMatcher {
                 details: `${type} from ${sourceName} to ${targetName}`
             });
         }
-
-        return results;
     }
 
-    matchAdvanced(diagram: ClassDiagram, criteria: BetterSearchCriteria): SearchResult[] {
-        const candidates = this.match(diagram);
-        const diagramIndex = this.buildDiagramIndex(diagram);
-
-        return candidates.filter(candidate => this.matchesCriteria(candidate, criteria, diagramIndex));
-    }
-
-    private matchesCriteria(
-        candidate: SearchResult,
-        criteria: BetterSearchCriteria,
-        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
-    ): boolean {
-        const element = diagramIndex.get(candidate.id);
-
-        const ownMatch = this.matchesType(candidate, criteria.type) && this.matchesFiltersOnElement(element, criteria.filters ?? []);
-
-        const propertyMatch = this.matchesNestedFilters(element, 'properties', criteria.propertyFilters ?? []);
-
-        const operationMatch = this.matchesNestedFilters(element, 'operations', criteria.operationFilters ?? []);
-
-        const selfMatch = ownMatch && propertyMatch && operationMatch;
-
-        if (!criteria.left && !criteria.right) {
-            return selfMatch;
+    private buildTypedDetails(typeName?: string, parentName?: string): string | undefined {
+        if (typeName) {
+            return `${typeName} in ${parentName ?? ''}`;
         }
 
-        const leftMatch = criteria.left ? this.matchesCriteria(candidate, criteria.left, diagramIndex) : true;
-
-        const rightMatch = criteria.right ? this.matchesCriteria(candidate, criteria.right, diagramIndex) : true;
-
-        const combinator = criteria.combinator ?? 'AND';
-        const childrenMatch = combinator === 'OR' ? leftMatch || rightMatch : leftMatch && rightMatch;
-
-        return selfMatch && childrenMatch;
-    }
-
-    private matchesFiltersOnElement(element: unknown, filters: BetterSearchFilter[]): boolean {
-        if (!element) return false;
-
-        return filters.every(filter => this.matchesFilterOnElement(element, filter));
-    }
-
-    private matchesNestedFilters(element: unknown, collectionKey: 'properties' | 'operations', filters: BetterSearchFilter[]): boolean {
-        if (filters.length === 0) {
-            return true;
+        if (parentName) {
+            return `In ${parentName}`;
         }
 
-        if (!element) {
-            return false;
-        }
-
-        const collection = (element as any)[collectionKey];
-
-        if (!Array.isArray(collection)) {
-            return false;
-        }
-
-        // Important: all filters must match the SAME nested element.
-        return collection.some(child => filters.every(filter => this.matchesFilterOnElement(child, filter)));
-    }
-
-    private matchesFilterOnElement(element: unknown, filter: BetterSearchFilter): boolean {
-        const actual = (element as any)?.[filter.key];
-        const expected = this.normalizeExpectedValue(filter);
-
-        switch (filter.operator) {
-            case 'contains':
-                if (actual === undefined || actual === null) return false;
-                return String(actual).toLowerCase().includes(String(expected).toLowerCase());
-
-            case 'equals':
-                return String(actual).toLowerCase() === String(expected).toLowerCase();
-
-            case 'startsWith':
-                if (actual === undefined || actual === null) return false;
-                return String(actual).toLowerCase().startsWith(String(expected).toLowerCase());
-
-            case 'endsWith':
-                if (actual === undefined || actual === null) return false;
-                return String(actual).toLowerCase().endsWith(String(expected).toLowerCase());
-
-            default:
-                return false;
-        }
-    }
-
-    private normalizeExpectedValue(filter: BetterSearchFilter): string | boolean {
-        if (filter.value.type === 'boolean') {
-            return filter.value.value.toLowerCase() === 'true';
-        }
-
-        return filter.value.value;
-    }
-
-    private matchesFilters(
-        candidate: SearchResult,
-        filters: BetterSearchFilter[],
-        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
-    ): boolean {
-        return filters.every(filter => this.matchesFilter(candidate, filter, diagramIndex));
-    }
-
-    private matchesFilter(
-        candidate: SearchResult,
-        filter: BetterSearchFilter,
-        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
-    ): boolean {
-        const actual = this.getSearchResultValue(candidate, filter.key, diagramIndex);
-        const expected = filter.value.value;
-
-        switch (filter.operator) {
-            case 'contains':
-                if (actual === undefined || actual === null) return false;
-
-                return String(actual).toLowerCase().includes(String(expected).toLowerCase());
-            // filter.key = 'name' and this is on purpose
-            // actual has a property 'name' which is the name of the element, but the filter value is directly on the filter.value.value property, so we need to compare actual.name with expected
-
-            case 'equals':
-                if (typeof expected === 'boolean') {
-                    return actual === expected;
-                }
-
-                return String(actual).toLowerCase() === String(expected).toLowerCase();
-
-            case 'startsWith':
-                if (actual === undefined || actual === null) return false;
-
-                return String(actual).toLowerCase().startsWith(String(expected).toLowerCase());
-
-            case 'endsWith':
-                if (actual === undefined || actual === null) return false;
-
-                return String(actual).toLowerCase().endsWith(String(expected).toLowerCase());
-
-            default:
-                return false;
-        }
-    }
-
-    private getSearchResultValue(
-        candidate: SearchResult,
-        key: string,
-        diagramIndex: Map<string, ClassDiagramNodes | ClassDiagramEdges>
-    ): any {
-        const element = diagramIndex.get(candidate.id);
-        return element ? (element as any)[key] : undefined;
+        return undefined;
     }
 
     private buildDiagramIndex(diagram: ClassDiagram): Map<string, ClassDiagramNodes | ClassDiagramEdges> {
         const diagramIndex = new Map<string, ClassDiagramNodes | ClassDiagramEdges>();
+
         SharedElementCollector.collectRecursively(diagram as any, element => {
             if (element?.__id) {
                 diagramIndex.set(element.__id, element);
             }
         });
 
+        for (const relation of diagram.relations ?? []) {
+            if (relation.__id) {
+                diagramIndex.set(relation.__id, relation);
+            }
+        }
+
         return diagramIndex;
-    }
-
-    private matchesType(candidate: SearchResult, criteriaType: string): boolean {
-        const actual = candidate.type.toLowerCase();
-        const expected = criteriaType.toLowerCase();
-
-        if (expected === 'class') {
-            return actual === 'class' || actual === 'abstractclass';
-        }
-
-        if (expected === 'relationship' || expected === 'relation') {
-            return this.isRelationshipType(actual);
-        }
-
-        return actual === expected;
-    }
-
-    private isRelationshipType(type: string): boolean {
-        return [
-            'association',
-            'aggregation',
-            'composition',
-            'generalization',
-            'dependency',
-            'abstraction',
-            'usage',
-            'realization',
-            'interfacerealization',
-            'substitution',
-            'packageimport',
-            'packagemerge'
-        ].includes(type);
     }
 }

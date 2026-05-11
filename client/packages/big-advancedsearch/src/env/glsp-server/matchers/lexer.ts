@@ -1,21 +1,6 @@
+// lexer.ts
+
 import { createToken, Lexer } from 'chevrotain';
-
-export const StringIdentifier = createToken({ name: 'Identifier', pattern: /[a-zA-Z]\w*/ });
-
-export const IntegerLiteral = createToken({
-    name: 'IntegerLiteral',
-    pattern: /\d+/
-});
-
-export const Colon = createToken({
-    name: 'Colon',
-    pattern: /:/
-});
-
-export const Comma = createToken({
-    name: 'Comma',
-    pattern: /,/
-});
 
 export const WhiteSpace = createToken({
     name: 'WhiteSpace',
@@ -26,80 +11,42 @@ export const WhiteSpace = createToken({
 
 export const ClassKeyword = createToken({
     name: 'ClassKeyword',
-    pattern: /Class/i,
-    longer_alt: StringIdentifier
+    pattern: /Class/i
 });
 
 export const AttributeKeyword = createToken({
     name: 'AttributeKeyword',
-    pattern: /Attribute/i,
-    longer_alt: StringIdentifier
+    pattern: /Attribute/i
 });
 
 export const MethodKeyword = createToken({
     name: 'MethodKeyword',
-    pattern: /Method/i,
-    longer_alt: StringIdentifier
+    pattern: /Method/i
 });
 
-export const ReadOnlyKeyword = createToken({
-    name: 'ReadOnlyKeyword',
-    pattern: /isReadOnly/i,
-    longer_alt: StringIdentifier
+export const RelationshipKeyword = createToken({
+    name: 'RelationshipKeyword',
+    pattern: /Relationship|Relation/i
 });
 
-export const OrderedKeyword = createToken({
-    name: 'OrderedKeyword',
-    pattern: /isOrdered/i,
-    longer_alt: StringIdentifier
+export const BooleanLiteral = createToken({
+    name: 'BooleanLiteral',
+    pattern: /true|false/i
 });
 
-export const UniqueKeyword = createToken({
-    name: 'UniqueKeyword',
-    pattern: /isUnique/i,
-    longer_alt: StringIdentifier
+export const IntegerLiteral = createToken({
+    name: 'IntegerLiteral',
+    pattern: /\d+/
 });
 
-export const AbstractKeyword = createToken({
-    name: 'AbstractKeyword',
-    pattern: /isAbstract/i,
-    longer_alt: StringIdentifier
+export const StringLiteral = createToken({
+    name: 'StringLiteral',
+    pattern: /"([^"\\]|\\.)*"/
 });
 
-export const VisibilityKeyword = createToken({
-    name: 'VisibilityKeyword',
-    pattern: /visibility/i,
-    longer_alt: StringIdentifier
-});
-
-export const ActiveKeyword = createToken({
-    name: 'ActiveKeyword',
-    pattern: /isActive/i,
-    longer_alt: StringIdentifier
-});
-
-export const DerivedKeyword = createToken({
-    name: 'DerivedKeyword',
-    pattern: /isDerived/i,
-    longer_alt: StringIdentifier
-});
-
-export const DerivedUnionKeyword = createToken({
-    name: 'DerivedUnionKeyword',
-    pattern: /isDerivedUnion/i,
-    longer_alt: StringIdentifier
-});
-
-export const StaticKeyword = createToken({
-    name: 'StaticKeyword',
-    pattern: /isStatic/i,
-    longer_alt: StringIdentifier
-});
-
-export const AggregationKeyword = createToken({
-    name: 'AggregationKeyword',
-    pattern: /aggregation/i,
-    longer_alt: StringIdentifier
+export const Identifier = createToken({
+    name: 'Identifier',
+    pattern: /[a-zA-Z_]\w*/
 });
 
 export const LeftSquareBracket = createToken({
@@ -112,9 +59,9 @@ export const RightSquareBracket = createToken({
     pattern: /\]/
 });
 
-export const Equals = createToken({
-    name: 'Equals',
-    pattern: /=/
+export const Comma = createToken({
+    name: 'Comma',
+    pattern: /,/
 });
 
 export const GreaterThan = createToken({
@@ -122,46 +69,35 @@ export const GreaterThan = createToken({
     pattern: />/
 });
 
+export const Equals = createToken({
+    name: 'Equals',
+    pattern: /=/
+});
+
 export const Similar = createToken({
     name: 'Similar',
     pattern: /~/
 });
 
-export const NameKeyword = createToken({
-    name: 'NameKeyword',
-    pattern: /Name/i,
-    longer_alt: StringIdentifier
-});
-
-// note we are placing WhiteSpace first as it is very common thus it will speed up the lexer.
 export const allTokens = [
     WhiteSpace,
 
-    // "keywords" appear before the Identifier
     ClassKeyword,
-    NameKeyword,
-    MethodKeyword,
-    AbstractKeyword,
-    ReadOnlyKeyword,
-    OrderedKeyword,
-    UniqueKeyword,
-    VisibilityKeyword,
-    DerivedUnionKeyword,
-    DerivedKeyword,
-    ActiveKeyword,
-    StaticKeyword,
-    AggregationKeyword,
     AttributeKeyword,
-    GreaterThan,
-    Equals,
-    Similar,
-    Comma,
+    MethodKeyword,
+    RelationshipKeyword,
+
+    BooleanLiteral,
+    IntegerLiteral,
+    StringLiteral,
+    Identifier,
+
     LeftSquareBracket,
     RightSquareBracket,
-
-    // The Identifier must appear after the keywords because all keywords are valid identifiers.
-    StringIdentifier,
-    IntegerLiteral
+    Comma,
+    GreaterThan,
+    Equals,
+    Similar
 ];
 
 export const ModelLexer = new Lexer(allTokens);
@@ -171,6 +107,7 @@ export function tokenize(text: string) {
 
     if (result.errors.length > 0) {
         const msg = result.errors.map(error => `[${error.line}:${error.column}] ${error.message}`).join(', ');
+
         throw new Error(`Error tokenizing the text. ${msg}`);
     }
 

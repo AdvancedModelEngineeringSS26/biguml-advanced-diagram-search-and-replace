@@ -1,29 +1,23 @@
-import { CstParser } from 'chevrotain';
+// parser.ts
 
+import { CstParser } from 'chevrotain';
 import {
-    tokenize,
     allTokens,
+    tokenize,
     ClassKeyword,
-    StringIdentifier,
-    LeftSquareBracket,
-    RightSquareBracket,
-    NameKeyword,
-    Equals,
-    Comma,
-    AbstractKeyword,
-    ActiveKeyword,
-    Similar,
-    GreaterThan,
     AttributeKeyword,
     MethodKeyword,
-    DerivedKeyword,
-    StaticKeyword,
-    VisibilityKeyword,
-    AggregationKeyword,
-    DerivedUnionKeyword,
-    ReadOnlyKeyword,
-    OrderedKeyword,
-    UniqueKeyword
+    RelationshipKeyword,
+    Identifier,
+    BooleanLiteral,
+    IntegerLiteral,
+    StringLiteral,
+    LeftSquareBracket,
+    RightSquareBracket,
+    Comma,
+    GreaterThan,
+    Equals,
+    Similar
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -33,179 +27,75 @@ export class ModelParser extends CstParser {
     }
 
     public expression = this.RULE('expression', () => {
-        this.SUBRULE(this.classSearch);
+        this.SUBRULE(this.searchElement);
     });
 
-    public classSearch = this.RULE('classSearch', () => {
-        this.CONSUME(ClassKeyword);
+    public searchElement = this.RULE('searchElement', () => {
+        this.SUBRULE(this.elementType);
 
         this.OPTION(() => {
-            this.CONSUME(LeftSquareBracket);
+            this.SUBRULE(this.filterList);
+        });
 
+        this.MANY(() => {
+            this.CONSUME(GreaterThan);
+            this.SUBRULE2(this.searchElement);
+        });
+    });
+
+    public elementType = this.RULE('elementType', () => {
+        this.OR([
+            { ALT: () => this.CONSUME(ClassKeyword) },
+            { ALT: () => this.CONSUME(AttributeKeyword) },
+            { ALT: () => this.CONSUME(MethodKeyword) },
+            { ALT: () => this.CONSUME(RelationshipKeyword) }
+        ]);
+    });
+
+    public filterList = this.RULE('filterList', () => {
+        this.CONSUME(LeftSquareBracket);
+
+        this.OPTION(() => {
             this.MANY_SEP({
                 SEP: Comma,
                 DEF: () => {
-                    this.SUBRULE(this.classSearchAttribute);
+                    this.SUBRULE(this.filter);
                 }
             });
-
-            this.CONSUME(RightSquareBracket);
         });
 
-        this.OPTION2(() => {
-            this.CONSUME(GreaterThan);
-            this.CONSUME(AttributeKeyword);
-
-            this.CONSUME2(LeftSquareBracket);
-
-            this.MANY_SEP2({
-                SEP: Comma,
-                DEF: () => {
-                    this.SUBRULE(this.attributeSearchAttribute);
-                }
-            });
-
-            this.CONSUME2(RightSquareBracket);
-        });
-
-        this.OPTION3(() => {
-            this.CONSUME2(GreaterThan);
-            this.CONSUME(MethodKeyword);
-
-            this.CONSUME3(LeftSquareBracket);
-
-            this.MANY_SEP3({
-                SEP: Comma,
-                DEF: () => {
-                    this.SUBRULE(this.methodSearchAttribute);
-                }
-            });
-
-            this.CONSUME3(RightSquareBracket);
-        });
+        this.CONSUME(RightSquareBracket);
     });
 
-    // New rule to handle the different types of key-value pairs
-    public classSearchAttribute = this.RULE('classSearchAttribute', () => {
+    public filter = this.RULE('filter', () => {
+        this.CONSUME(Identifier, { LABEL: 'key' });
+        this.SUBRULE(this.operator);
+        this.SUBRULE(this.value);
+    });
+
+    public operator = this.RULE('operator', () => {
+        this.OR([{ ALT: () => this.CONSUME(Equals) }, { ALT: () => this.CONSUME(Similar) }]);
+    });
+
+    public value = this.RULE('value', () => {
         this.OR([
-            { ALT: () => this.SUBRULE(this.classSearchName) },
-            { ALT: () => this.SUBRULE(this.classSearchNameSimilar) },
-            { ALT: () => this.SUBRULE(this.classSearchIsAbstract) },
-            { ALT: () => this.SUBRULE(this.classSearchIsActive) },
-            { ALT: () => this.SUBRULE(this.classSearchVisibility) }
+            { ALT: () => this.CONSUME(StringLiteral) },
+            { ALT: () => this.CONSUME(BooleanLiteral) },
+            { ALT: () => this.CONSUME(IntegerLiteral) },
+            { ALT: () => this.CONSUME(Identifier) }
         ]);
-    });
-
-    public methodSearchAttribute = this.RULE('methodSearchAttribute', () => {
-        this.OR([{ ALT: () => this.SUBRULE(this.methodSearchIsStatic) }]);
-    });
-
-    public attributeSearchAttribute = this.RULE('attributeSearchAttribute', () => {
-        this.OR([
-            { ALT: () => this.SUBRULE(this.attributeSearchIsDerivedUnion) },
-            { ALT: () => this.SUBRULE(this.attributeSearchIsDerived) },
-            { ALT: () => this.SUBRULE(this.attributeSearchAggregation) },
-            { ALT: () => this.SUBRULE(this.attributeSearchVisibility) },
-            { ALT: () => this.SUBRULE(this.attributeSearchIsReadOnly) },
-            { ALT: () => this.SUBRULE(this.attributeSearchIsOrdered) },
-            { ALT: () => this.SUBRULE(this.attributeSearchIsUnique) },
-            { ALT: () => this.SUBRULE(this.attributeSearchIsStatic) }
-        ]);
-    });
-
-    public attributeSearchIsReadOnly = this.RULE('attributeSearchIsReadOnly', () => {
-        this.CONSUME(ReadOnlyKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'readOnlyValue' });
-    });
-
-    public attributeSearchIsOrdered = this.RULE('attributeSearchIsOrdered', () => {
-        this.CONSUME(OrderedKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'orderedValue' });
-    });
-
-    public attributeSearchIsUnique = this.RULE('attributeSearchIsUnique', () => {
-        this.CONSUME(UniqueKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'uniqueValue' });
-    });
-
-    public attributeSearchVisibility = this.RULE('attributeSearchVisibility', () => {
-        this.CONSUME(VisibilityKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'visibilityValue' });
-    });
-
-    public attributeSearchAggregation = this.RULE('attributeSearchAggregation', () => {
-        this.CONSUME(AggregationKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'aggregationValue' });
-    });
-
-    public attributeSearchIsStatic = this.RULE('attributeSearchIsStatic', () => {
-        this.CONSUME(StaticKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'isStaticValue' });
-    });
-
-    public attributeSearchIsDerived = this.RULE('attributeSearchIsDerived', () => {
-        this.CONSUME(DerivedKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'derivedValue' });
-    });
-
-    public attributeSearchIsDerivedUnion = this.RULE('attributeSearchIsDerivedUnion', () => {
-        this.CONSUME(DerivedUnionKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'derivedUnionValue' });
-    });
-
-    public classSearchName = this.RULE('classSearchName', () => {
-        this.CONSUME(NameKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'className' });
-    });
-
-    public classSearchNameSimilar = this.RULE('classSearchNameSimilar', () => {
-        this.CONSUME(NameKeyword);
-        this.CONSUME(Similar);
-        this.CONSUME(StringIdentifier, { LABEL: 'className' });
-    });
-
-    public classSearchIsAbstract = this.RULE('classSearchIsAbstract', () => {
-        this.CONSUME(AbstractKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'abstractValue' });
-    });
-
-    public classSearchIsActive = this.RULE('classSearchIsActive', () => {
-        this.CONSUME(ActiveKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'activeValue' });
-    });
-
-    public classSearchVisibility = this.RULE('classSearchVisibility', () => {
-        this.CONSUME(VisibilityKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'visibilityValue' });
-    });
-
-    public methodSearchIsStatic = this.RULE('methodSearchIsStatic', () => {
-        this.CONSUME(StaticKeyword);
-        this.CONSUME(Equals);
-        this.CONSUME(StringIdentifier, { LABEL: 'staticValue' });
     });
 }
 
-export const parser: ModelParser = new ModelParser();
+export const parser = new ModelParser();
+
 export function parse(text: string) {
-    // "input" is a setter which will reset the parser's state.
     parser.input = tokenize(text);
     const cst = parser.expression();
 
     if (parser.errors.length > 0) {
         const msg = parser.errors.map(error => `[${error.name}] ${error.message}`).join(', ');
+
         throw new Error(msg);
     }
 
