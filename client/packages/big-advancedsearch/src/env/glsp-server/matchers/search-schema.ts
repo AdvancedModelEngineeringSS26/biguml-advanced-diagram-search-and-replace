@@ -78,6 +78,12 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         scopes: ['Attribute', 'Relationship'],
         valueType: 'string',
         defaultOperator: 'equals'
+    },
+    {
+        key: 'isQuery',
+        scopes: ['Method'],
+        valueType: 'boolean',
+        defaultOperator: 'equals'
     }
 ];
 
