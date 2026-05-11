@@ -8,7 +8,7 @@
  **********************************************************************************/
 
 import { BBadge, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
-import { useContext, useEffect, useState, type ReactElement } from 'react';
+import { useCallback, useContext, useEffect, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
@@ -19,34 +19,67 @@ export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fireSearch = (value: string) => {
         setQuery(value);
-        if (clientId) {
-            dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
-        }
+        if (debounceTimer.current) clearTimeout(debounceTimer.current);
+        debounceTimer.current = setTimeout(() => {
+            if (clientId) {
+                dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
+            }
+        }, 150);
     };
 
     const highlight = (semanticUri: string | undefined) => {
-        if (!clientId || !semanticUri) {
-            return;
-        }
+        if (!clientId || !semanticUri) return;
         dispatchAction(RequestHighlightElementAction.create({ semanticUri }));
     };
+
+    const applyDiagramHighlighting = useCallback((matchedIds: string[]) => {
+        const sprottyRoot = document.querySelector('.sprotty');
+        if (!sprottyRoot) return;
+
+        if (matchedIds.length > 0) {
+            sprottyRoot.classList.add('search-active');
+        } else {
+            sprottyRoot.classList.remove('search-active');
+        }
+
+        sprottyRoot.querySelectorAll('.search-match').forEach(el => {
+            el.classList.remove('search-match');
+        });
+
+        for (const id of matchedIds) {
+            // GLSP renders elements with id attribute matching the semantic id
+            const el = sprottyRoot.querySelector(`[id="${id}"]`);
+            if (el) el.classList.add('search-match');
+        }
+    }, []);
 
     useEffect(() => {
         const handler = (action: unknown) => {
             if (AdvancedSearchActionResponse.is(action)) {
                 setResults(action.results);
+                const ids = action.results.map(r => r.id).filter(Boolean);
+                applyDiagramHighlighting(ids);
             }
             if (HighlightElementActionResponse.is(action)) {
-                if (action.ok) {
-                    return;
-                }
             }
         };
         listenAction(handler);
-    }, [listenAction]);
+
+        return () => {
+            const sprottyRoot = document.querySelector('.sprotty');
+            if (sprottyRoot) {
+                sprottyRoot.classList.remove('search-active');
+                sprottyRoot.querySelectorAll('.search-match').forEach(el => el.classList.remove('search-match'));
+            }
+        };
+    }, [listenAction, applyDiagramHighlighting]);
+
+    const hasResults = results.length > 0;
+    const isSearching = query.trim().length > 0;
 
     return (
         <div className='advanced-search'>
@@ -54,7 +87,7 @@ export function AdvancedSearch(): ReactElement {
                 <BTextfield
                     className='advanced-search__text'
                     value={query}
-                    placeholder='e.g. Class:Lecture'
+                    placeholder='e.g. Class:User*'
                     onInput={e => fireSearch((e.target as HTMLInputElement).value)}
                 >
                     <span slot='end' className='codicon codicon-search' />
@@ -62,7 +95,7 @@ export function AdvancedSearch(): ReactElement {
             </div>
 
             <div>
-                {results.length > 0 ? (
+                {hasResults ? (
                     <ul className='advanced-search__results'>
                         {results.map((item, idx) => (
                             <li key={idx} className='result-item' onClick={() => highlight((item as any).semanticUri ?? item.id)}>
@@ -70,13 +103,14 @@ export function AdvancedSearch(): ReactElement {
                                     <BBadge className='result-item__tag'>{item.type}</BBadge>
                                     <span className='result-item__name'>{item.name}</span>
                                 </div>
+                                {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
                                 {item.details && <div className='result-item__details'>{item.details}</div>}
                             </li>
                         ))}
                     </ul>
-                ) : (
-                    <p>No results found.</p>
-                )}
+                ) : isSearching ? (
+                    <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>
+                ) : null}
             </div>
         </div>
     );
