@@ -17,7 +17,13 @@ import {
     AttributeKeyword,
     MethodKeyword,
     DerivedKeyword,
-    StaticKeyword
+    StaticKeyword,
+    VisibilityKeyword,
+    AggregationKeyword,
+    DerivedUnionKeyword,
+    ReadOnlyKeyword,
+    OrderedKeyword,
+    UniqueKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -85,7 +91,8 @@ export class ModelParser extends CstParser {
             { ALT: () => this.SUBRULE(this.classSearchName) },
             { ALT: () => this.SUBRULE(this.classSearchNameSimilar) },
             { ALT: () => this.SUBRULE(this.classSearchIsAbstract) },
-            { ALT: () => this.SUBRULE(this.classSearchIsActive) }
+            { ALT: () => this.SUBRULE(this.classSearchIsActive) },
+            { ALT: () => this.SUBRULE(this.classSearchVisibility) }
         ]);
     });
 
@@ -94,13 +101,64 @@ export class ModelParser extends CstParser {
     });
 
     public attributeSearchAttribute = this.RULE('attributeSearchAttribute', () => {
-        this.OR([{ ALT: () => this.SUBRULE(this.attributeSearchIsDerived) }]);
+        this.OR([
+            { ALT: () => this.SUBRULE(this.attributeSearchIsDerivedUnion) },
+            { ALT: () => this.SUBRULE(this.attributeSearchIsDerived) },
+            { ALT: () => this.SUBRULE(this.attributeSearchAggregation) },
+            { ALT: () => this.SUBRULE(this.attributeSearchVisibility) },
+            { ALT: () => this.SUBRULE(this.attributeSearchIsReadOnly) },
+            { ALT: () => this.SUBRULE(this.attributeSearchIsOrdered) },
+            { ALT: () => this.SUBRULE(this.attributeSearchIsUnique) },
+            { ALT: () => this.SUBRULE(this.attributeSearchIsStatic) }
+        ]);
+    });
+
+    public attributeSearchIsReadOnly = this.RULE('attributeSearchIsReadOnly', () => {
+        this.CONSUME(ReadOnlyKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'readOnlyValue' });
+    });
+
+    public attributeSearchIsOrdered = this.RULE('attributeSearchIsOrdered', () => {
+        this.CONSUME(OrderedKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'orderedValue' });
+    });
+
+    public attributeSearchIsUnique = this.RULE('attributeSearchIsUnique', () => {
+        this.CONSUME(UniqueKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'uniqueValue' });
+    });
+
+    public attributeSearchVisibility = this.RULE('attributeSearchVisibility', () => {
+        this.CONSUME(VisibilityKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'visibilityValue' });
+    });
+
+    public attributeSearchAggregation = this.RULE('attributeSearchAggregation', () => {
+        this.CONSUME(AggregationKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'aggregationValue' });
+    });
+
+    public attributeSearchIsStatic = this.RULE('attributeSearchIsStatic', () => {
+        this.CONSUME(StaticKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'isStaticValue' });
     });
 
     public attributeSearchIsDerived = this.RULE('attributeSearchIsDerived', () => {
         this.CONSUME(DerivedKeyword);
         this.CONSUME(Equals);
         this.CONSUME(StringIdentifier, { LABEL: 'derivedValue' });
+    });
+
+    public attributeSearchIsDerivedUnion = this.RULE('attributeSearchIsDerivedUnion', () => {
+        this.CONSUME(DerivedUnionKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'derivedUnionValue' });
     });
 
     public classSearchName = this.RULE('classSearchName', () => {
@@ -125,6 +183,12 @@ export class ModelParser extends CstParser {
         this.CONSUME(ActiveKeyword);
         this.CONSUME(Equals);
         this.CONSUME(StringIdentifier, { LABEL: 'activeValue' });
+    });
+
+    public classSearchVisibility = this.RULE('classSearchVisibility', () => {
+        this.CONSUME(VisibilityKeyword);
+        this.CONSUME(Equals);
+        this.CONSUME(StringIdentifier, { LABEL: 'visibilityValue' });
     });
 
     public methodSearchIsStatic = this.RULE('methodSearchIsStatic', () => {

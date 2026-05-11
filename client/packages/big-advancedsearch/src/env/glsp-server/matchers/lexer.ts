@@ -42,9 +42,33 @@ export const MethodKeyword = createToken({
     longer_alt: StringIdentifier
 });
 
+export const ReadOnlyKeyword = createToken({
+    name: 'ReadOnlyKeyword',
+    pattern: /isReadOnly/i,
+    longer_alt: StringIdentifier
+});
+
+export const OrderedKeyword = createToken({
+    name: 'OrderedKeyword',
+    pattern: /isOrdered/i,
+    longer_alt: StringIdentifier
+});
+
+export const UniqueKeyword = createToken({
+    name: 'UniqueKeyword',
+    pattern: /isUnique/i,
+    longer_alt: StringIdentifier
+});
+
 export const AbstractKeyword = createToken({
     name: 'AbstractKeyword',
     pattern: /isAbstract/i,
+    longer_alt: StringIdentifier
+});
+
+export const VisibilityKeyword = createToken({
+    name: 'VisibilityKeyword',
+    pattern: /visibility/i,
     longer_alt: StringIdentifier
 });
 
@@ -60,9 +84,21 @@ export const DerivedKeyword = createToken({
     longer_alt: StringIdentifier
 });
 
+export const DerivedUnionKeyword = createToken({
+    name: 'DerivedUnionKeyword',
+    pattern: /isDerivedUnion/i,
+    longer_alt: StringIdentifier
+});
+
 export const StaticKeyword = createToken({
     name: 'StaticKeyword',
     pattern: /isStatic/i,
+    longer_alt: StringIdentifier
+});
+
+export const AggregationKeyword = createToken({
+    name: 'AggregationKeyword',
+    pattern: /aggregation/i,
     longer_alt: StringIdentifier
 });
 
@@ -78,7 +114,7 @@ export const RightSquareBracket = createToken({
 
 export const Equals = createToken({
     name: 'Equals',
-    pattern: /==/
+    pattern: /=/
 });
 
 export const GreaterThan = createToken({
@@ -88,7 +124,7 @@ export const GreaterThan = createToken({
 
 export const Similar = createToken({
     name: 'Similar',
-    pattern: /=/
+    pattern: /~/
 });
 
 export const NameKeyword = createToken({
@@ -106,9 +142,15 @@ export const allTokens = [
     NameKeyword,
     MethodKeyword,
     AbstractKeyword,
+    ReadOnlyKeyword,
+    OrderedKeyword,
+    UniqueKeyword,
+    VisibilityKeyword,
+    DerivedUnionKeyword,
     DerivedKeyword,
     ActiveKeyword,
     StaticKeyword,
+    AggregationKeyword,
     AttributeKeyword,
     GreaterThan,
     Equals,

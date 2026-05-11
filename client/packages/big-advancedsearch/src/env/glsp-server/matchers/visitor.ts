@@ -84,6 +84,13 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
 
     attributeSearchAttribute(children: any): BetterSearchFilter {
         if (children.attributeSearchIsDerived) return this.visit(children.attributeSearchIsDerived);
+        if (children.attributeSearchAggregation) return this.visit(children.attributeSearchAggregation);
+        if (children.attributeSearchVisibility) return this.visit(children.attributeSearchVisibility);
+        if (children.attributeSearchIsDerivedUnion) return this.visit(children.attributeSearchIsDerivedUnion);
+        if (children.attributeSearchIsReadOnly) return this.visit(children.attributeSearchIsReadOnly);
+        if (children.attributeSearchIsOrdered) return this.visit(children.attributeSearchIsOrdered);
+        if (children.attributeSearchIsUnique) return this.visit(children.attributeSearchIsUnique);
+        if (children.attributeSearchIsStatic) return this.visit(children.attributeSearchIsStatic);
         return undefined as any;
     }
 
@@ -93,6 +100,96 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         return {
             type: 'IsDerivedFilter',
             key: 'isDerived',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    attributeSearchIsDerivedUnion(children: any): BetterSearchFilter {
+        const val = children.derivedUnionValue[0].image.toLowerCase();
+
+        return {
+            type: 'IsDerivedUnionFilter',
+            key: 'isDerivedUnion',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    attributeSearchAggregation(children: any): BetterSearchFilter {
+        return {
+            type: 'AggregationFilter',
+            key: 'aggregation',
+            operator: 'equals',
+            value: {
+                type: 'string',
+                value: children.aggregationValue[0].image.toLowerCase()
+            }
+        };
+    }
+
+    attributeSearchVisibility(children: any): BetterSearchFilter {
+        return {
+            type: 'VisibilityFilter',
+            key: 'visibility',
+            operator: 'equals',
+            value: {
+                type: 'string',
+                value: children.visibilityValue[0].image.toLowerCase()
+            }
+        };
+    }
+
+    attributeSearchIsReadOnly(children: any): BetterSearchFilter {
+        const val = children.readOnlyValue[0].image.toLowerCase();
+        return {
+            type: 'IsReadOnlyFilter',
+            key: 'isReadOnly',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    attributeSearchIsOrdered(children: any): BetterSearchFilter {
+        const val = children.orderedValue[0].image.toLowerCase();
+        return {
+            type: 'IsOrderedFilter',
+            key: 'isOrdered',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    attributeSearchIsUnique(children: any): BetterSearchFilter {
+        const val = children.uniqueValue[0].image.toLowerCase();
+        return {
+            type: 'IsUniqueFilter',
+            key: 'isUnique',
+            operator: 'equals',
+            value: {
+                type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    attributeSearchIsStatic(children: any): BetterSearchFilter {
+        const val = children.isStaticValue[0].image.toLowerCase();
+        return {
+            type: 'IsStaticFilter',
+            key: 'isStatic',
             operator: 'equals',
             value: {
                 type: 'boolean',
@@ -125,6 +222,7 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         if (children.classSearchName) return this.visit(children.classSearchName);
         if (children.classSearchIsAbstract) return this.visit(children.classSearchIsAbstract);
         if (children.classSearchIsActive) return this.visit(children.classSearchIsActive);
+        if (children.classSearchVisibility) return this.visit(children.classSearchVisibility);
         return undefined as any;
     }
 
@@ -173,6 +271,19 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
             operator: 'equals',
             value: {
                 type: 'boolean',
+                value: val
+            }
+        };
+    }
+
+    classSearchVisibility(children: any): BetterSearchFilter {
+        const val = children.visibilityValue[0].image.toLowerCase();
+        return {
+            type: 'VisibilityFilter',
+            key: 'visibility',
+            operator: 'equals',
+            value: {
+                type: 'string',
                 value: val
             }
         };
