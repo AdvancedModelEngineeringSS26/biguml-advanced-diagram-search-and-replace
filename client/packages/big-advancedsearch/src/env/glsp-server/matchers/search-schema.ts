@@ -22,7 +22,7 @@ export interface SearchFilterSpec {
 export const FILTER_SPECS: SearchFilterSpec[] = [
     {
         key: 'name',
-        scopes: ['Class', 'Attribute', 'Method', 'Relationship', 'DataType', 'Enumeration', 'EnumerationLiteral'],
+        scopes: ['Class', 'Attribute', 'Method', 'Relationship', 'DataType', 'Enumeration', 'EnumerationLiteral', 'Interface'],
         valueType: 'string',
         defaultOperator: 'equals'
     },

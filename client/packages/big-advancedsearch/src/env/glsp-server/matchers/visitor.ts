@@ -61,6 +61,7 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         if (children.DataTypeKeyword) return 'DataType';
         if (children.EnumerationKeyword) return 'Enumeration';
         if (children.EnumerationLiteralKeyword) return 'EnumerationLiteral';
+        if (children.InterfaceKeyword) return 'Interface'; // Treat Interface as Class for search purposes
 
         throw new Error('Unknown search element type.');
     }

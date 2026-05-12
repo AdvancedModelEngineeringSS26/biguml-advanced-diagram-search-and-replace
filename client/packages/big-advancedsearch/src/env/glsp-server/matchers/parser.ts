@@ -27,7 +27,8 @@ import {
     Similar,
     DataTypeKeyword,
     EnumerationKeyword,
-    EnumerationLiteralKeyword
+    EnumerationLiteralKeyword,
+    InterfaceKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -61,7 +62,8 @@ export class ModelParser extends CstParser {
             { ALT: () => this.CONSUME(RelationshipKeyword) },
             { ALT: () => this.CONSUME(DataTypeKeyword) },
             { ALT: () => this.CONSUME(EnumerationKeyword) },
-            { ALT: () => this.CONSUME(EnumerationLiteralKeyword) }
+            { ALT: () => this.CONSUME(EnumerationLiteralKeyword) },
+            { ALT: () => this.CONSUME(InterfaceKeyword) }
         ]);
     });
 

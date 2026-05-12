@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-export type SearchElementType = 'Class' | 'Attribute' | 'Method' | 'Relationship' | 'DataType' | 'Enumeration' | 'EnumerationLiteral';
+export type SearchElementType = 'Class' | 'Attribute' | 'Method' | 'Relationship' | 'DataType' | 'Enumeration' | 'EnumerationLiteral' | 'Interface';
 
 export type SearchOperator = 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'greaterThan' | 'lessThan';
 
