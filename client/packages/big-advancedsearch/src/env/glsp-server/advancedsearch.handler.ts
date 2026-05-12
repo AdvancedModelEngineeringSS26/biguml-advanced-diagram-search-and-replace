@@ -27,6 +27,11 @@ export class AdvancedSearchActionHandler implements ActionHandler {
 
     private readonly matchers: IMatcher[] = [new ClassDiagramMatcher()];
 
+    private readonly typeOrder: Record<string, number> = {
+        class: 0,
+        association: 99
+    };
+
     execute(action: RequestAdvancedSearchAction | RequestHighlightElementAction): MaybePromise<any[]> {
         if (RequestAdvancedSearchAction.is(action)) {
             return this.handleSearch(action);
@@ -49,7 +54,7 @@ export class AdvancedSearchActionHandler implements ActionHandler {
                     results.push(...matcher.match(diagram));
                 }
 
-                return [AdvancedSearchActionResponse.create({ results })];
+                return [AdvancedSearchActionResponse.create({ results: this.sortResults(results) })];
             }
 
             const criteria = buildAst(rawQuery);
@@ -60,7 +65,7 @@ export class AdvancedSearchActionHandler implements ActionHandler {
                 }
             }
 
-            return [AdvancedSearchActionResponse.create({ results })];
+            return [AdvancedSearchActionResponse.create({ results: this.sortResults(results) })];
         } catch (error) {
             console.error('Could not parse query', error);
             return [AdvancedSearchActionResponse.create({ results: [] })];
@@ -74,5 +79,24 @@ export class AdvancedSearchActionHandler implements ActionHandler {
             SelectAction.create({ selectedElementsIDs: [uri] }),
             HighlightElementActionResponse.create({ ok: true })
         ];
+    }
+
+    private sortResults(results: SearchResult[]): SearchResult[] {
+        return results.sort((a, b) => {
+            const aTypeRank = this.typeOrder[a.type.toLowerCase()] ?? 50;
+            const bTypeRank = this.typeOrder[b.type.toLowerCase()] ?? 50;
+
+            const rankComparison = aTypeRank - bTypeRank;
+            if (rankComparison !== 0) {
+                return rankComparison;
+            }
+
+            const typeComparison = a.type.localeCompare(b.type, undefined, { sensitivity: 'base' });
+            if (typeComparison !== 0) {
+                return typeComparison;
+            }
+
+            return a.name.localeCompare(b.name, undefined, { sensitivity: 'base' });
+        });
     }
 }
