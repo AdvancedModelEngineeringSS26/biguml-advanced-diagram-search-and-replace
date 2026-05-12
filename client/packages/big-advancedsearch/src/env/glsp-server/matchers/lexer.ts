@@ -1,0 +1,122 @@
+/**********************************************************************************
+ * Copyright (c) 2025 borkdominik and others.
+ *
+ * This program and the accompanying materials are made available under the
+ * terms of the MIT License which is available at https://opensource.org/licenses/MIT.
+ *
+ * SPDX-License-Identifier: MIT
+ **********************************************************************************/
+
+import { createToken, Lexer } from 'chevrotain';
+
+export const WhiteSpace = createToken({
+    name: 'WhiteSpace',
+    pattern: /\s+/,
+    line_breaks: true,
+    group: Lexer.SKIPPED
+});
+
+export const ClassKeyword = createToken({
+    name: 'ClassKeyword',
+    pattern: /Class/i
+});
+
+export const AttributeKeyword = createToken({
+    name: 'AttributeKeyword',
+    pattern: /Attribute/i
+});
+
+export const MethodKeyword = createToken({
+    name: 'MethodKeyword',
+    pattern: /Method/i
+});
+
+export const RelationshipKeyword = createToken({
+    name: 'RelationshipKeyword',
+    pattern: /Relationship|Relation/i
+});
+
+export const BooleanLiteral = createToken({
+    name: 'BooleanLiteral',
+    pattern: /true|false/i
+});
+
+export const IntegerLiteral = createToken({
+    name: 'IntegerLiteral',
+    pattern: /\d+/
+});
+
+export const StringLiteral = createToken({
+    name: 'StringLiteral',
+    pattern: /"([^"\\]|\\.)*"/
+});
+
+export const Identifier = createToken({
+    name: 'Identifier',
+    pattern: /[a-zA-Z_]\w*/
+});
+
+export const LeftSquareBracket = createToken({
+    name: 'LeftSquareBracket',
+    pattern: /\[/
+});
+
+export const RightSquareBracket = createToken({
+    name: 'RightSquareBracket',
+    pattern: /\]/
+});
+
+export const Comma = createToken({
+    name: 'Comma',
+    pattern: /,/
+});
+
+export const GreaterThan = createToken({
+    name: 'GreaterThan',
+    pattern: />/
+});
+
+export const Equals = createToken({
+    name: 'Equals',
+    pattern: /=/
+});
+
+export const Similar = createToken({
+    name: 'Similar',
+    pattern: /~/
+});
+
+export const allTokens = [
+    WhiteSpace,
+
+    ClassKeyword,
+    AttributeKeyword,
+    MethodKeyword,
+    RelationshipKeyword,
+
+    BooleanLiteral,
+    IntegerLiteral,
+    StringLiteral,
+    Identifier,
+
+    LeftSquareBracket,
+    RightSquareBracket,
+    Comma,
+    GreaterThan,
+    Equals,
+    Similar
+];
+
+export const ModelLexer = new Lexer(allTokens);
+
+export function tokenize(text: string) {
+    const result = ModelLexer.tokenize(text);
+
+    if (result.errors.length > 0) {
+        const msg = result.errors.map(error => `[${error.line}:${error.column}] ${error.message}`).join(', ');
+
+        throw new Error(`Error tokenizing the text. ${msg}`);
+    }
+
+    return result.tokens;
+}

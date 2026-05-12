@@ -16,6 +16,7 @@ import { HighlightElementActionResponse, RequestHighlightElementAction } from '.
 import type { SearchResult } from '../common/searchresult.js';
 import type { IMatcher } from './matchers/IMatcher.js';
 import { ClassDiagramMatcher } from './matchers/classmatcher.js';
+import { buildAst } from './matchers/visitor.js';
 
 @injectable()
 export class AdvancedSearchActionHandler implements ActionHandler {
@@ -38,56 +39,32 @@ export class AdvancedSearchActionHandler implements ActionHandler {
 
     protected handleSearch(action: RequestAdvancedSearchAction): any[] {
         const diagram = this.modelState.semanticRoot.diagram;
-        const results: SearchResult[] = [];
         const rawQuery = action.query.trim();
 
-        let type: string | undefined;
-        let pattern: string | undefined;
+        try {
+            const results: SearchResult[] = [];
 
-        if (rawQuery.includes(':')) {
-            const [rawType, rawPattern] = rawQuery.split(':', 2);
-            type = rawType?.trim().toLowerCase() || undefined;
-            pattern = rawPattern?.trim().toLowerCase() || undefined;
-        } else {
-            type = undefined;
-            pattern = rawQuery.toLowerCase();
-        }
+            if (rawQuery.length === 0) {
+                for (const matcher of this.matchers) {
+                    results.push(...matcher.match(diagram));
+                }
 
-        const applicableMatchers = !type ? this.matchers : this.matchers.filter(m => m.supportsPartial?.(type as string));
-
-        for (const matcher of applicableMatchers) {
-            results.push(...matcher.match(diagram));
-        }
-
-        const filtered = results.filter(item => {
-            const itemType = item.type.toLowerCase();
-            const name = item.name?.toLowerCase() ?? '';
-            const details = item.details?.toLowerCase() ?? '';
-            const parentName = item.parentName?.toLowerCase() ?? '';
-            const matchesType = !type || itemType.includes(type);
-            const matchesPattern = !pattern || name.includes(pattern) || details.includes(pattern) || parentName.includes(pattern);
-            return matchesType && matchesPattern;
-        });
-
-        const unique = new Map<string, SearchResult>();
-        for (const item of filtered) {
-            const key = `${item.id}-${item.type}`;
-            const existing = unique.get(key);
-            if (!existing) {
-                unique.set(key, item);
-                continue;
+                return [AdvancedSearchActionResponse.create({ results })];
             }
-            const existingName = existing.name ?? '';
-            const candidateName = item.name ?? '';
-            const existingIsUnknown = existingName.includes('(unknown)');
-            const candidateIsUnknown = candidateName.includes('(unknown)');
-            if (existingIsUnknown && !candidateIsUnknown) {
-                unique.set(key, item);
-                continue;
-            }
-        }
 
-        return [AdvancedSearchActionResponse.create({ results: Array.from(unique.values()) })];
+            const criteria = buildAst(rawQuery);
+
+            for (const matcher of this.matchers) {
+                if ('matchAdvanced' in matcher && typeof matcher.matchAdvanced === 'function') {
+                    results.push(...matcher.matchAdvanced(diagram, criteria));
+                }
+            }
+
+            return [AdvancedSearchActionResponse.create({ results })];
+        } catch (error) {
+            console.error('Could not parse query', error);
+            return [AdvancedSearchActionResponse.create({ results: [] })];
+        }
     }
 
     protected handleHighlight(action: RequestHighlightElementAction): any[] {
