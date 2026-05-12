@@ -1,6 +1,6 @@
 // matcher-utils.ts
 
-import type { SearchCriteria, SearchFilter, SearchValue } from './search-ast.js';
+import type { SearchCriteria, SearchFilter } from './search-ast.js';
 
 export function matchesCriteriaOnElement(element: any, criteria: SearchCriteria): boolean {
     if (!element) {
