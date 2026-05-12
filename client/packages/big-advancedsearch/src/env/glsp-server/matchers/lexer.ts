@@ -31,9 +31,19 @@ export const MethodKeyword = createToken({
     pattern: /Method/i
 });
 
+export const DataTypeKeyword = createToken({
+    name: 'DataTypeKeyword',
+    pattern: /DataType/i
+});
+
 export const RelationshipKeyword = createToken({
     name: 'RelationshipKeyword',
     pattern: /Relationship|Relation/i
+});
+
+export const EnumerationKeyword = createToken({
+    name: 'EnumerationKeyword',
+    pattern: /Enumeration/i
 });
 
 export const BooleanLiteral = createToken({
@@ -93,6 +103,8 @@ export const allTokens = [
     AttributeKeyword,
     MethodKeyword,
     RelationshipKeyword,
+    DataTypeKeyword,
+    EnumerationKeyword,
 
     BooleanLiteral,
     IntegerLiteral,

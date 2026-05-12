@@ -22,19 +22,19 @@ export interface SearchFilterSpec {
 export const FILTER_SPECS: SearchFilterSpec[] = [
     {
         key: 'name',
-        scopes: ['Class', 'Attribute', 'Method', 'Relationship'],
+        scopes: ['Class', 'Attribute', 'Method', 'Relationship', 'DataType', 'Enumeration'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method'],
+        scopes: ['Class', 'Attribute', 'Method', 'DataType'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
     {
         key: 'isAbstract',
-        scopes: ['Class', 'Method'],
+        scopes: ['Class', 'Method', 'DataType'],
         valueType: 'boolean',
         defaultOperator: 'equals'
     },

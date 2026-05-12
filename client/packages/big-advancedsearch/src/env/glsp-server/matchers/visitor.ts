@@ -58,6 +58,8 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         if (children.AttributeKeyword) return 'Attribute';
         if (children.MethodKeyword) return 'Method';
         if (children.RelationshipKeyword) return 'Relationship';
+        if (children.DataTypeKeyword) return 'DataType';
+        if (children.EnumerationKeyword) return 'Enumeration';
 
         throw new Error('Unknown search element type.');
     }
