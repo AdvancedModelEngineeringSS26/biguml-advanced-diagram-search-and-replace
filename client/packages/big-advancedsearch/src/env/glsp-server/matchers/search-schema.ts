@@ -27,7 +27,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     },
     {
         key: 'isAbstract',
-        scopes: ['Class'],
+        scopes: ['Class', 'Method'],
         valueType: 'boolean',
         defaultOperator: 'equals'
     },
@@ -83,6 +83,12 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         key: 'isQuery',
         scopes: ['Method'],
         valueType: 'boolean',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'concurrency',
+        scopes: ['Method'],
+        valueType: 'string',
         defaultOperator: 'equals'
     }
 ];
