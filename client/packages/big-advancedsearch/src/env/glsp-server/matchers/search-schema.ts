@@ -32,14 +32,16 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
             'EnumerationLiteral',
             'Interface',
             'PrimitiveType',
-            'Package'
+            'Package',
+            'InstanceSpecification',
+            'Slot'
         ],
         valueType: 'string',
         defaultOperator: 'equals'
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package'],
+        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package', 'InstanceSpecification'],
         valueType: 'string',
         defaultOperator: 'equals'
     },

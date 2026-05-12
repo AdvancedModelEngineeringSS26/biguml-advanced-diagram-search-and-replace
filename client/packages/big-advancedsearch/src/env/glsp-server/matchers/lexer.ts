@@ -66,6 +66,16 @@ export const PackageKeyword = createToken({
     pattern: /Package/i
 });
 
+export const InstanceSpecificationKeyword = createToken({
+    name: 'InstanceSpecificationKeyword',
+    pattern: /InstanceSpecification|Instance/i
+});
+
+export const SlotKeyword = createToken({
+    name: 'SlotKeyword',
+    pattern: /Slot/i
+});
+
 export const BooleanLiteral = createToken({
     name: 'BooleanLiteral',
     pattern: /true|false/i
@@ -129,6 +139,8 @@ export const allTokens = [
     InterfaceKeyword,
     PrimitiveTypeKeyword,
     PackageKeyword,
+    InstanceSpecificationKeyword,
+    SlotKeyword,
 
     BooleanLiteral,
     IntegerLiteral,

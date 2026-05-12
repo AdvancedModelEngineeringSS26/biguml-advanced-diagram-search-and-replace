@@ -64,6 +64,8 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         if (children.InterfaceKeyword) return 'Interface';
         if (children.PrimitiveTypeKeyword) return 'PrimitiveType';
         if (children.PackageKeyword) return 'Package';
+        if (children.InstanceSpecificationKeyword) return 'InstanceSpecification';
+        if (children.SlotKeyword) return 'Slot'; 
 
         throw new Error('Unknown search element type.');
     }
