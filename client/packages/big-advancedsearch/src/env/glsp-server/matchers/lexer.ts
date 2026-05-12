@@ -41,6 +41,11 @@ export const RelationshipKeyword = createToken({
     pattern: /Relationship|Relation/i
 });
 
+export const EnumerationLiteralKeyword = createToken({
+    name: 'EnumerationLiteralKeyword',
+    pattern: /EnumerationLiteral/i
+});
+
 export const EnumerationKeyword = createToken({
     name: 'EnumerationKeyword',
     pattern: /Enumeration/i
@@ -104,6 +109,7 @@ export const allTokens = [
     MethodKeyword,
     RelationshipKeyword,
     DataTypeKeyword,
+    EnumerationLiteralKeyword,
     EnumerationKeyword,
 
     BooleanLiteral,

@@ -60,6 +60,9 @@ function getChildrenForCriteria(element: any, childCriteria: SearchCriteria): an
         case 'Method':
             return Array.isArray(element.operations) ? element.operations : [];
 
+        case 'EnumerationLiteral':
+            return Array.isArray(element.values) ? element.values : [];
+
         default:
             return [];
     }

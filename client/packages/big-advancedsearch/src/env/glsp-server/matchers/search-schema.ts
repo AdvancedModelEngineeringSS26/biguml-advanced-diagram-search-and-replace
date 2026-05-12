@@ -22,13 +22,13 @@ export interface SearchFilterSpec {
 export const FILTER_SPECS: SearchFilterSpec[] = [
     {
         key: 'name',
-        scopes: ['Class', 'Attribute', 'Method', 'Relationship', 'DataType', 'Enumeration'],
+        scopes: ['Class', 'Attribute', 'Method', 'Relationship', 'DataType', 'Enumeration', 'EnumerationLiteral'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method', 'DataType'],
+        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
@@ -95,6 +95,12 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     {
         key: 'concurrency',
         scopes: ['Method'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'value',
+        scopes: ['EnumerationLiteral'],
         valueType: 'string',
         defaultOperator: 'equals'
     }
