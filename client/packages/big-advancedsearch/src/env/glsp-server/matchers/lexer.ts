@@ -31,9 +31,49 @@ export const MethodKeyword = createToken({
     pattern: /Method/i
 });
 
+export const DataTypeKeyword = createToken({
+    name: 'DataTypeKeyword',
+    pattern: /DataType/i
+});
+
 export const RelationshipKeyword = createToken({
     name: 'RelationshipKeyword',
     pattern: /Relationship|Relation/i
+});
+
+export const EnumerationLiteralKeyword = createToken({
+    name: 'EnumerationLiteralKeyword',
+    pattern: /EnumerationLiteral/i
+});
+
+export const EnumerationKeyword = createToken({
+    name: 'EnumerationKeyword',
+    pattern: /Enumeration/i
+});
+
+export const InterfaceKeyword = createToken({
+    name: 'InterfaceKeyword',
+    pattern: /Interface/i
+});
+
+export const PrimitiveTypeKeyword = createToken({
+    name: 'PrimitiveTypeKeyword',
+    pattern: /PrimitiveType/i
+});
+
+export const PackageKeyword = createToken({
+    name: 'PackageKeyword',
+    pattern: /Package/i
+});
+
+export const InstanceSpecificationKeyword = createToken({
+    name: 'InstanceSpecificationKeyword',
+    pattern: /InstanceSpecification|Instance/i
+});
+
+export const SlotKeyword = createToken({
+    name: 'SlotKeyword',
+    pattern: /Slot/i
 });
 
 export const BooleanLiteral = createToken({
@@ -93,6 +133,14 @@ export const allTokens = [
     AttributeKeyword,
     MethodKeyword,
     RelationshipKeyword,
+    DataTypeKeyword,
+    EnumerationLiteralKeyword,
+    EnumerationKeyword,
+    InterfaceKeyword,
+    PrimitiveTypeKeyword,
+    PackageKeyword,
+    InstanceSpecificationKeyword,
+    SlotKeyword,
 
     BooleanLiteral,
     IntegerLiteral,

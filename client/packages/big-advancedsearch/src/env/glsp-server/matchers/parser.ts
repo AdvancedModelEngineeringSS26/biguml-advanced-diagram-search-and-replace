@@ -24,7 +24,15 @@ import {
     Comma,
     GreaterThan,
     Equals,
-    Similar
+    Similar,
+    DataTypeKeyword,
+    EnumerationKeyword,
+    EnumerationLiteralKeyword,
+    InterfaceKeyword,
+    PrimitiveTypeKeyword,
+    PackageKeyword,
+    InstanceSpecificationKeyword,
+    SlotKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -55,7 +63,15 @@ export class ModelParser extends CstParser {
             { ALT: () => this.CONSUME(ClassKeyword) },
             { ALT: () => this.CONSUME(AttributeKeyword) },
             { ALT: () => this.CONSUME(MethodKeyword) },
-            { ALT: () => this.CONSUME(RelationshipKeyword) }
+            { ALT: () => this.CONSUME(RelationshipKeyword) },
+            { ALT: () => this.CONSUME(DataTypeKeyword) },
+            { ALT: () => this.CONSUME(EnumerationKeyword) },
+            { ALT: () => this.CONSUME(EnumerationLiteralKeyword) },
+            { ALT: () => this.CONSUME(InterfaceKeyword) },
+            { ALT: () => this.CONSUME(PrimitiveTypeKeyword) },
+            { ALT: () => this.CONSUME(PackageKeyword) },
+            { ALT: () => this.CONSUME(InstanceSpecificationKeyword) },
+            { ALT: () => this.CONSUME(SlotKeyword) }
         ]);
     });
 
