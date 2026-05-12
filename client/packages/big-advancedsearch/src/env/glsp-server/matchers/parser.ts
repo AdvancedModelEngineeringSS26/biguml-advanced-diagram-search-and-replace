@@ -29,7 +29,8 @@ import {
     EnumerationKeyword,
     EnumerationLiteralKeyword,
     InterfaceKeyword,
-    PrimitiveTypeKeyword
+    PrimitiveTypeKeyword,
+    PackageKeyword
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -65,7 +66,8 @@ export class ModelParser extends CstParser {
             { ALT: () => this.CONSUME(EnumerationKeyword) },
             { ALT: () => this.CONSUME(EnumerationLiteralKeyword) },
             { ALT: () => this.CONSUME(InterfaceKeyword) },
-            { ALT: () => this.CONSUME(PrimitiveTypeKeyword) }
+            { ALT: () => this.CONSUME(PrimitiveTypeKeyword) },
+            { ALT: () => this.CONSUME(PackageKeyword) }
         ]);
     });
 

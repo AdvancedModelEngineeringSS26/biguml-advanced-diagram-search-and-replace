@@ -22,13 +22,24 @@ export interface SearchFilterSpec {
 export const FILTER_SPECS: SearchFilterSpec[] = [
     {
         key: 'name',
-        scopes: ['Class', 'Attribute', 'Method', 'Relationship', 'DataType', 'Enumeration', 'EnumerationLiteral', 'Interface', 'PrimitiveType'],
+        scopes: [
+            'Class',
+            'Attribute',
+            'Method',
+            'Relationship',
+            'DataType',
+            'Enumeration',
+            'EnumerationLiteral',
+            'Interface',
+            'PrimitiveType',
+            'Package'
+        ],
         valueType: 'string',
         defaultOperator: 'equals'
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral'],
+        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
@@ -101,6 +112,12 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     {
         key: 'value',
         scopes: ['EnumerationLiteral'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'uri',
+        scopes: ['Package'],
         valueType: 'string',
         defaultOperator: 'equals'
     }

@@ -61,6 +61,11 @@ export const PrimitiveTypeKeyword = createToken({
     pattern: /PrimitiveType/i
 });
 
+export const PackageKeyword = createToken({
+    name: 'PackageKeyword',
+    pattern: /Package/i
+});
+
 export const BooleanLiteral = createToken({
     name: 'BooleanLiteral',
     pattern: /true|false/i
@@ -123,6 +128,7 @@ export const allTokens = [
     EnumerationKeyword,
     InterfaceKeyword,
     PrimitiveTypeKeyword,
+    PackageKeyword,
 
     BooleanLiteral,
     IntegerLiteral,
