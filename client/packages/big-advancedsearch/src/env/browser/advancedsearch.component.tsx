@@ -65,6 +65,11 @@ export function AdvancedSearch(): ReactElement {
                 applyDiagramHighlighting(ids);
             }
             if (HighlightElementActionResponse.is(action)) {
+                if (HighlightElementActionResponse.is(action)) {
+                    if (action.ok) {
+                        return;
+                    }
+                }
             }
         };
         listenAction(handler);

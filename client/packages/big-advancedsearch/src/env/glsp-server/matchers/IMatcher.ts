@@ -8,7 +8,7 @@
  **********************************************************************************/
 
 import type { SearchResult } from '../../common/searchresult.js';
-import { SearchCriteria } from './search-ast.js';
+import type { SearchCriteria } from './search-ast.js';
 
 export interface IMatcher {
     supports(type: string): boolean;
