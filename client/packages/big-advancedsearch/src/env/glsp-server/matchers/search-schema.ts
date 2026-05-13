@@ -122,6 +122,15 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         scopes: ['Package'],
         valueType: 'string',
         defaultOperator: 'equals'
+    },
+
+    {
+        key: 'multiplicity',
+        scopes: ['Attribute', 'Method'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+        // TODO: multiplicity is not yet settable via the property palette UI
+        // does not support standard UML multiplicity notation (e.g. "0..*")
     }
 ];
 
