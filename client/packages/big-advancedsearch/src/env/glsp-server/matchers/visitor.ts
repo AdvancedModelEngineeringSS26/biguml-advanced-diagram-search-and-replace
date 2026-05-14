@@ -90,14 +90,19 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
     }
 
     value(children: any): SearchValue {
+        const token =
+            children.StringLiteral?.[0] ??
+            children.BooleanLiteral?.[0] ??
+            children.IntegerLiteral?.[0] ??
+            children.Identifier?.[0] ??
+            children.searchElement?.[0];        
+
         if (children.searchElement) {
             return {
                 type: 'criteria',
                 value: this.visit(children.searchElement[0]) as SearchCriteria
             };
         }
-        const token =
-            children.StringLiteral?.[0] ?? children.BooleanLiteral?.[0] ?? children.IntegerLiteral?.[0] ?? children.Identifier?.[0];
 
         if (!token) {
             throw new Error('Missing value.');
