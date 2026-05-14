@@ -9,7 +9,7 @@
 
 import type { SearchCriteria, SearchFilter } from './search-ast.js';
 
-export function matchesCriteriaOnElement(element: any, criteria: SearchCriteria): boolean {
+export function matchesCriteriaOnElement(element: any, criteria: SearchCriteria, index?: Map<string, any>): boolean {
     if (!element) {
         return false;
     }
@@ -18,14 +18,13 @@ export function matchesCriteriaOnElement(element: any, criteria: SearchCriteria)
         return false;
     }
 
-    if (!criteria.filters.every(filter => matchesFilter(element, filter))) {
+    if (!criteria.filters.every(filter => matchesFilter(element, filter, index))) {
         return false;
     }
 
     return criteria.children.every(childCriteria => {
         const children = getChildrenForCriteria(element, childCriteria);
-
-        return children.some(child => matchesCriteriaOnElement(child, childCriteria));
+        return children.some(child => matchesCriteriaOnElement(child, childCriteria, index));
     });
 }
 
@@ -68,8 +67,29 @@ function getChildrenForCriteria(element: any, childCriteria: SearchCriteria): an
     }
 }
 
-function matchesFilter(element: any, filter: SearchFilter): boolean {
-    const actual = element[filter.key];
+function matchesFilter(element: any, filter: SearchFilter, index?: Map<string, any>): boolean {
+    if (filter.value.type === 'criteria') {
+        const nestedCriteria = filter.value.value as SearchCriteria;
+
+        if (filter.key !== 'source' && filter.key !== 'target') {
+            return false;
+        }
+
+        const refNode = element[filter.key]?.ref ?? index?.get(element[filter.key]?.__value);
+
+        if (!refNode) {
+            return false;
+        }
+
+        return matchesCriteriaOnElement(refNode, nestedCriteria, index);
+    }
+
+    let actual = element[filter.key];
+
+    if (filter.key === 'type' && actual === undefined) {
+        actual = element.propertyType?.$refText;
+    }
+
     const expected = filter.value.value;
 
     switch (filter.operator) {
