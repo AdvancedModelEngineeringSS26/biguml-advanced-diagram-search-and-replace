@@ -7,16 +7,8 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-// visitor.ts
-
 import { parse, parser } from './parser.js';
-import type {
-    SearchCriteria,
-    SearchElementType,
-    SearchFilter,
-    SearchOperator,
-    SearchValue
-} from './search-ast.js';
+import type { SearchCriteria, SearchElementType, SearchFilter, SearchOperator, SearchValue } from './search-ast.js';
 import { findFilterSpec } from './search-schema.js';
 
 const BaseCstVisitor = parser.getBaseCstVisitorConstructor();
@@ -65,7 +57,7 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         if (children.PrimitiveTypeKeyword) return 'PrimitiveType';
         if (children.PackageKeyword) return 'Package';
         if (children.InstanceSpecificationKeyword) return 'InstanceSpecification';
-        if (children.SlotKeyword) return 'Slot'; 
+        if (children.SlotKeyword) return 'Slot';
 
         throw new Error('Unknown search element type.');
     }
@@ -98,11 +90,14 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
     }
 
     value(children: any): SearchValue {
+        if (children.searchElement) {
+            return {
+                type: 'criteria',
+                value: this.visit(children.searchElement[0]) as SearchCriteria
+            };
+        }
         const token =
-            children.StringLiteral?.[0] ??
-            children.BooleanLiteral?.[0] ??
-            children.IntegerLiteral?.[0] ??
-            children.Identifier?.[0];
+            children.StringLiteral?.[0] ?? children.BooleanLiteral?.[0] ?? children.IntegerLiteral?.[0] ?? children.Identifier?.[0];
 
         if (!token) {
             throw new Error('Missing value.');
@@ -137,6 +132,8 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
 
     private validateFilters(criteria: SearchCriteria): void {
         for (const filter of criteria.filters) {
+            if (filter.value.type === 'criteria') continue;
+
             const spec = findFilterSpec(criteria.type, filter.key);
 
             if (!spec) {
@@ -144,9 +141,7 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
             }
 
             if (filter.value.type !== spec.valueType) {
-                throw new Error(
-                    `Filter "${filter.key}" on ${criteria.type} expects ${spec.valueType}, but got ${filter.value.type}.`
-                );
+                throw new Error(`Filter "${filter.key}" on ${criteria.type} expects ${spec.valueType}, but got ${filter.value.type}.`);
             }
         }
 
