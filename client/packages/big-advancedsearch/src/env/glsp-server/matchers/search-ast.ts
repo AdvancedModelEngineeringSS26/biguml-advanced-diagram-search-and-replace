@@ -7,11 +7,27 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-export type SearchElementType = 'Class' | 'Attribute' | 'Method' | 'Relationship' | 'DataType' | 'Enumeration' | 'EnumerationLiteral' | 'Interface' | 'PrimitiveType' | 'Package' | 'InstanceSpecification' | 'Slot';
+export type SearchElementType =
+    | 'Class'
+    | 'Attribute'
+    | 'Method'
+    | 'Relationship'
+    | 'DataType'
+    | 'Enumeration'
+    | 'EnumerationLiteral'
+    | 'Interface'
+    | 'PrimitiveType'
+    | 'Package'
+    | 'InstanceSpecification'
+    | 'Slot';
 
 export type SearchOperator = 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'greaterThan' | 'lessThan';
 
-export type SearchValue = { type: 'string'; value: string } | { type: 'boolean'; value: boolean } | { type: 'number'; value: number };
+export type SearchValue =
+    | { type: 'string'; value: string }
+    | { type: 'boolean'; value: boolean }
+    | { type: 'number'; value: number }
+    | { type: 'criteria'; value: SearchCriteria };
 
 export interface SearchFilter {
     key: string;
