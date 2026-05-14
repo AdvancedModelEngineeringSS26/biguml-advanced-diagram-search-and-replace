@@ -126,7 +126,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
 
     {
         key: 'multiplicity',
-        scopes: ['Attribute', 'Method'],
+        scopes: ['Attribute'],
         valueType: 'string',
         defaultOperator: 'equals'
         // TODO: multiplicity is not yet settable via the property palette UI
