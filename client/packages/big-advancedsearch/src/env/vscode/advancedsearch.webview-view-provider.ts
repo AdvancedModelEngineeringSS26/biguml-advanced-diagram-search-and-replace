@@ -17,9 +17,11 @@ import {
 } from '@borkdominik-biguml/big-vscode/vscode';
 import { DisposableCollection } from '@eclipse-glsp/vscode-integration';
 import { inject, injectable, postConstruct } from 'inversify';
-import type { Disposable } from 'vscode';
+import * as vscode from 'vscode';
+import { type Disposable } from 'vscode';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { ReplaceActionResponse } from '../common/replace.action.js';
+import { UndoNotification } from '../common/undo.notification.js';
 
 @injectable()
 export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
@@ -61,7 +63,13 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
             this.connectionManager.onDidActiveClientChange(() => this.requestModel()),
             this.connectionManager.onNoActiveClient(() => this.actionMessenger.dispatch(AdvancedSearchActionResponse.create())),
             this.connectionManager.onNoConnection(() => this.actionMessenger.dispatch(AdvancedSearchActionResponse.create())),
-            this.modelState.onDidChangeModelState(() => this.requestModel())
+            this.modelState.onDidChangeModelState(() => this.requestModel()),
+            // Webview asked us to run VS Code's undo on its behalf — bounce
+            // through the command palette so VS Code's custom-document undo
+            // stack and our Ctrl+Z behavior stay aligned.
+            messenger.onNotification(UndoNotification.TYPE, () => {
+                vscode.commands.executeCommand('undo');
+            })
         );
         return disposables;
     }
