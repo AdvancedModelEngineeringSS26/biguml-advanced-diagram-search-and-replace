@@ -26,12 +26,20 @@ function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function computeNewValue(oldValue: string | undefined, find: string, replaceWith: string): string | undefined {
+function computeNewValue(
+    oldValue: string | undefined,
+    find: string,
+    replaceWith: string,
+    isRegex: boolean,
+    caseSensitive: boolean
+): string | undefined {
     if (typeof oldValue !== 'string' || find === '') {
         return oldValue;
     }
     try {
-        return oldValue.replace(new RegExp(escapeRegex(find), 'gi'), replaceWith);
+        const pattern = isRegex ? find : escapeRegex(find);
+        const flags = caseSensitive ? 'g' : 'gi';
+        return oldValue.replace(new RegExp(pattern, flags), replaceWith);
     } catch {
         return oldValue;
     }
@@ -51,6 +59,8 @@ export function AdvancedSearch(): ReactElement {
     const [results, setResults] = useState<SearchResult[]>([]);
     const [replaceOpen, setReplaceOpen] = useState(false);
     const [replaceWith, setReplaceWith] = useState('');
+    const [caseSensitive, setCaseSensitive] = useState(false);
+    const [isRegex, setIsRegex] = useState(false);
     const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
     const [outcomes, setOutcomes] = useState<Map<string, ReplaceResult>>(new Map());
     const [replaceStatus, setReplaceStatus] = useState<ReplaceStatus | undefined>(undefined);
@@ -108,7 +118,9 @@ export function AdvancedSearch(): ReactElement {
             RequestReplaceAction.create({
                 elementIds,
                 searchPattern: findPattern,
-                replaceWith
+                replaceWith,
+                isRegex,
+                caseSensitive
             })
         );
     };
@@ -131,11 +143,11 @@ export function AdvancedSearch(): ReactElement {
         const map = new Map<string, { newName: string; changes: boolean }>();
         if (!replaceOpen) return map;
         for (const r of results) {
-            const newName = computeNewValue(r.name, findPattern, replaceWith) ?? r.name;
+            const newName = computeNewValue(r.name, findPattern, replaceWith, isRegex, caseSensitive) ?? r.name;
             map.set(r.id, { newName, changes: newName !== r.name });
         }
         return map;
-    }, [results, findPattern, replaceWith, replaceOpen]);
+    }, [results, findPattern, replaceWith, isRegex, caseSensitive, replaceOpen]);
 
     const includedIds = useMemo(() => results.filter(r => !excludedIds.has(r.id)).map(r => r.id), [results, excludedIds]);
 
@@ -248,6 +260,26 @@ export function AdvancedSearch(): ReactElement {
                 {replaceOpen && (
                     <div className='advanced-search__replace-block'>
                         <div className='advanced-search__replace-row'>
+                            <button
+                                type='button'
+                                className={`advanced-search__option ${caseSensitive ? 'advanced-search__option--active' : ''}`}
+                                title={`Match case (${caseSensitive ? 'on' : 'off'})`}
+                                aria-pressed={caseSensitive}
+                                aria-label='Match case'
+                                onClick={() => setCaseSensitive(v => !v)}
+                            >
+                                <span className='codicon codicon-case-sensitive' />
+                            </button>
+                            <button
+                                type='button'
+                                className={`advanced-search__option ${isRegex ? 'advanced-search__option--active' : ''}`}
+                                title={`Use regular expression (${isRegex ? 'on' : 'off'})`}
+                                aria-pressed={isRegex}
+                                aria-label='Use regular expression'
+                                onClick={() => setIsRegex(v => !v)}
+                            >
+                                <span className='codicon codicon-regex' />
+                            </button>
                             <BTextfield
                                 className='advanced-search__text'
                                 value={replaceWith}
