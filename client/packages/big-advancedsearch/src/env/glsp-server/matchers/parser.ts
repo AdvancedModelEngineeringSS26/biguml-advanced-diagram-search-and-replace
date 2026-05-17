@@ -10,29 +10,29 @@
 import { CstParser } from 'chevrotain';
 import {
     allTokens,
-    tokenize,
-    ClassKeyword,
     AttributeKeyword,
-    MethodKeyword,
-    RelationshipKeyword,
-    Identifier,
     BooleanLiteral,
-    IntegerLiteral,
-    StringLiteral,
-    LeftSquareBracket,
-    RightSquareBracket,
+    ClassKeyword,
     Comma,
-    GreaterThan,
-    Equals,
-    Similar,
     DataTypeKeyword,
     EnumerationKeyword,
     EnumerationLiteralKeyword,
-    InterfaceKeyword,
-    PrimitiveTypeKeyword,
-    PackageKeyword,
+    Equals,
+    GreaterThan,
+    Identifier,
     InstanceSpecificationKeyword,
-    SlotKeyword
+    IntegerLiteral,
+    InterfaceKeyword,
+    LeftSquareBracket,
+    MethodKeyword,
+    PackageKeyword,
+    PrimitiveTypeKeyword,
+    RelationshipKeyword,
+    RightSquareBracket,
+    Similar,
+    SlotKeyword,
+    StringLiteral,
+    tokenize
 } from './lexer.js';
 
 export class ModelParser extends CstParser {
@@ -105,7 +105,8 @@ export class ModelParser extends CstParser {
             { ALT: () => this.CONSUME(StringLiteral) },
             { ALT: () => this.CONSUME(BooleanLiteral) },
             { ALT: () => this.CONSUME(IntegerLiteral) },
-            { ALT: () => this.CONSUME(Identifier) }
+            { ALT: () => this.CONSUME(Identifier) },
+            { ALT: () => this.SUBRULE(this.searchElement) }
         ]);
     });
 }

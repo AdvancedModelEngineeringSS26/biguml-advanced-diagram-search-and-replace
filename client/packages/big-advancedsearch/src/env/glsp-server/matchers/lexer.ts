@@ -9,6 +9,10 @@
 
 import { createToken, Lexer } from 'chevrotain';
 
+export const Identifier = createToken({
+    name: 'Identifier',
+    pattern: /[a-zA-Z_]\w*/
+});
 export const WhiteSpace = createToken({
     name: 'WhiteSpace',
     pattern: /\s+/,
@@ -38,7 +42,8 @@ export const DataTypeKeyword = createToken({
 
 export const RelationshipKeyword = createToken({
     name: 'RelationshipKeyword',
-    pattern: /Relationship|Relation/i
+    pattern: /Relationship|Relation/i,
+    longer_alt: Identifier
 });
 
 export const EnumerationLiteralKeyword = createToken({
@@ -68,7 +73,8 @@ export const PackageKeyword = createToken({
 
 export const InstanceSpecificationKeyword = createToken({
     name: 'InstanceSpecificationKeyword',
-    pattern: /InstanceSpecification|Instance/i
+    pattern: /InstanceSpecification|Instance/i,
+    longer_alt: Identifier
 });
 
 export const SlotKeyword = createToken({
@@ -78,7 +84,8 @@ export const SlotKeyword = createToken({
 
 export const BooleanLiteral = createToken({
     name: 'BooleanLiteral',
-    pattern: /true|false/i
+    pattern: /true|false/i,
+    longer_alt: Identifier
 });
 
 export const IntegerLiteral = createToken({
@@ -89,11 +96,6 @@ export const IntegerLiteral = createToken({
 export const StringLiteral = createToken({
     name: 'StringLiteral',
     pattern: /"([^"\\]|\\.)*"/
-});
-
-export const Identifier = createToken({
-    name: 'Identifier',
-    pattern: /[a-zA-Z_]\w*/
 });
 
 export const LeftSquareBracket = createToken({

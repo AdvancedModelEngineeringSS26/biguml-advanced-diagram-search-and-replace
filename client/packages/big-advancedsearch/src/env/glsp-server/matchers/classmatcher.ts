@@ -9,17 +9,13 @@
 
 // classmatcher.ts
 
-import type {
-    ClassDiagram,
-    ClassDiagramEdges,
-    ClassDiagramNodes
-} from '@borkdominik-biguml/uml-model-server/grammar';
+import type { ClassDiagram, ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
 
 import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
-import { SharedElementCollector } from './sharedcollector.js';
-import type { SearchCriteria } from './search-ast.js';
 import { matchesCriteriaOnElement } from './matcher-utils.js';
+import type { SearchCriteria } from './search-ast.js';
+import { SharedElementCollector } from './sharedcollector.js';
 
 export class ClassDiagramMatcher implements IMatcher {
     private readonly supportedTypes = [
@@ -79,7 +75,7 @@ export class ClassDiagramMatcher implements IMatcher {
 
         return candidates.filter(candidate => {
             const element = diagramIndex.get(candidate.id);
-            return matchesCriteriaOnElement(element, criteria);
+            return matchesCriteriaOnElement(element, criteria, diagramIndex);
         });
     }
 
@@ -165,20 +161,14 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: element.definingFeature?.$refText
-                            ? `Feature: ${element.definingFeature.$refText}`
-                            : undefined
+                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined
                     });
                     break;
             }
         });
     }
 
-    private collectRelationResults(
-        diagram: ClassDiagram,
-        results: SearchResult[],
-        idToName: Map<string, string>
-    ): void {
+    private collectRelationResults(diagram: ClassDiagram, results: SearchResult[], idToName: Map<string, string>): void {
         for (const relation of diagram.relations ?? []) {
             const type = relation.$type;
 
@@ -189,20 +179,11 @@ export class ClassDiagramMatcher implements IMatcher {
             const sourceId = relation.source?.ref?.__id;
             const targetId = relation.target?.ref?.__id;
 
-            const sourceName =
-                relation.source?.$refText ??
-                idToName.get(sourceId ?? '') ??
-                '(unknown)';
+            const sourceName = relation.source?.ref?.name ?? relation.source?.$refText ?? idToName.get(sourceId ?? '') ?? '(unknown)';
 
-            const targetName =
-                relation.target?.$refText ??
-                idToName.get(targetId ?? '') ??
-                '(unknown)';
-
+            const targetName = relation.target?.ref?.name ?? relation.target?.$refText ?? idToName.get(targetId ?? '') ?? '(unknown)';
             const relationName =
-                'name' in relation && relation.name
-                    ? `${relation.name}: ${sourceName} → ${targetName}`
-                    : `${sourceName} → ${targetName}`;
+                'name' in relation && relation.name ? `${relation.name}: ${sourceName} → ${targetName}` : `${sourceName} → ${targetName}`;
 
             results.push({
                 id: relation.__id,
