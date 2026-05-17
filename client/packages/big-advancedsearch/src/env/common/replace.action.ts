@@ -35,6 +35,12 @@ export interface RequestReplaceAction extends RequestAction<ReplaceActionRespons
     property?: string;
     /** Whether searchPattern should be treated as a regular expression. */
     isRegex?: boolean;
+    /**
+     * Whether matching should be case-sensitive. When omitted, the backend uses
+     * the mode default (literal = case-insensitive, regex = case-sensitive) to
+     * preserve historical behavior.
+     */
+    caseSensitive?: boolean;
 }
 
 export namespace RequestReplaceAction {
@@ -50,6 +56,7 @@ export namespace RequestReplaceAction {
         replaceWith: string;
         property?: string;
         isRegex?: boolean;
+        caseSensitive?: boolean;
         requestId?: string;
     }): RequestReplaceAction {
         return {
@@ -59,7 +66,8 @@ export namespace RequestReplaceAction {
             searchPattern: options.searchPattern,
             replaceWith: options.replaceWith,
             property: options.property,
-            isRegex: options.isRegex
+            isRegex: options.isRegex,
+            caseSensitive: options.caseSensitive
         };
     }
 }

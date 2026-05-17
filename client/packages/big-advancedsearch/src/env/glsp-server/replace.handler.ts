@@ -80,7 +80,13 @@ export class ReplaceActionHandler implements ActionHandler {
                 continue;
             }
 
-            const newValue = this.applyReplacement(oldValue, action.searchPattern, action.replaceWith, action.isRegex ?? false);
+            const newValue = this.applyReplacement(
+                oldValue,
+                action.searchPattern,
+                action.replaceWith,
+                action.isRegex ?? false,
+                action.caseSensitive
+            );
             if (newValue === oldValue) {
                 results.push({ id, property, oldValue, newValue, success: true, changed: false });
                 continue;
@@ -100,14 +106,25 @@ export class ReplaceActionHandler implements ActionHandler {
         return [ReplaceActionResponse.create({ ok: true, results })];
     }
 
-    protected applyReplacement(value: string, searchPattern: string, replaceWith: string, isRegex: boolean): string {
+    protected applyReplacement(
+        value: string,
+        searchPattern: string,
+        replaceWith: string,
+        isRegex: boolean,
+        caseSensitive?: boolean
+    ): string {
         if (searchPattern === '') {
             return value;
         }
+        // When caseSensitive is explicit, honor it. When undefined, fall back to the
+        // mode default (literal = case-insensitive, regex = case-sensitive) so older
+        // callers that don't pass the flag keep their historical behavior.
+        const ci = caseSensitive === undefined ? !isRegex : !caseSensitive;
+        const flags = ci ? 'gi' : 'g';
         if (isRegex) {
-            return value.replace(new RegExp(searchPattern, 'g'), replaceWith);
+            return value.replace(new RegExp(searchPattern, flags), replaceWith);
         }
         const escaped = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return value.replace(new RegExp(escaped, 'gi'), replaceWith);
+        return value.replace(new RegExp(escaped, flags), replaceWith);
     }
 }

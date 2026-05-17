@@ -55,6 +55,37 @@
     outline-offset: 1px;
 }
 
+.advanced-search__option {
+    flex: 0 0 auto;
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 0.2rem 0.3rem;
+    cursor: pointer;
+    color: var(--vscode-foreground, inherit);
+    border-radius: 3px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0.75;
+}
+
+.advanced-search__option:hover {
+    background: var(--vscode-toolbar-hoverBackground, rgba(255, 255, 255, 0.08));
+    opacity: 1;
+}
+
+.advanced-search__option--active {
+    background: var(--vscode-inputOption-activeBackground, rgba(14, 99, 156, 0.4));
+    border-color: var(--vscode-inputOption-activeBorder, #007acc);
+    color: var(--vscode-inputOption-activeForeground, inherit);
+    opacity: 1;
+}
+
+.advanced-search__option:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder, #007fd4);
+    outline-offset: 1px;
+}
+
 .advanced-search__results {
     list-style: none;
     margin: 0;
