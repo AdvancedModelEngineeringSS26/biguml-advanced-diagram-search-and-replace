@@ -7,9 +7,14 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
+import type { ClassDiagramNodes, ClassDiagramEdges } from '@borkdominik-biguml/uml-model-server/grammar';
 import type { SearchCriteria, SearchFilter } from './search-ast.js';
 
-export function matchesCriteriaOnElement(element: any, criteria: SearchCriteria, index?: Map<string, any>): boolean {
+export function matchesCriteriaOnElement(
+    element: any,
+    criteria: SearchCriteria,
+    index: Map<string, ClassDiagramNodes | ClassDiagramEdges>
+): boolean {
     if (!element) {
         return false;
     }
@@ -67,7 +72,7 @@ function getChildrenForCriteria(element: any, childCriteria: SearchCriteria): an
     }
 }
 
-function matchesFilter(element: any, filter: SearchFilter, index?: Map<string, any>): boolean {
+function matchesFilter(element: any, filter: SearchFilter, index: Map<string, ClassDiagramNodes | ClassDiagramEdges>): boolean {
     if (filter.value.type === 'criteria') {
         const nestedCriteria = filter.value.value as SearchCriteria;
 
@@ -75,7 +80,9 @@ function matchesFilter(element: any, filter: SearchFilter, index?: Map<string, a
             return false;
         }
 
-        const refNode = element[filter.key]?.ref ?? index?.get(element[filter.key]?.__value);
+        const refId = element[filter.key]?.__value ?? element[filter.key]?.$refText;
+
+        const refNode = index.get(refId);
 
         if (!refNode) {
             return false;
