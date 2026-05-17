@@ -41,7 +41,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package', 'InstanceSpecification'],
+        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package', 'InstanceSpecification', 'Relationship'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
@@ -141,6 +141,36 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     },
     {
         key: 'target',
+        scopes: ['Relationship'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'relationType',
+        scopes: ['Relationship'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'sourceAggregation',
+        scopes: ['Relationship'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'targetAggregation',
+        scopes: ['Relationship'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'sourceMultiplicity',
+        scopes: ['Relationship'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'targetMultiplicity',
         scopes: ['Relationship'],
         valueType: 'string',
         defaultOperator: 'equals'
