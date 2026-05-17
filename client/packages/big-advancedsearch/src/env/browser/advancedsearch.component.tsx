@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import { BBadge, BButton, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
+import { BBadge, BButton, BOption, BSingleSelect, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
@@ -52,12 +52,44 @@ function derivePatternFromQuery(query: string): string {
     return query.trim();
 }
 
+// Properties whose AST values are drawn from a fixed set. The UI renders these
+// as dropdowns instead of free-text inputs. Values are uppercased to match the
+// langium AST literals (see `Visibility` in uml-model-server/.../ast.ts).
+const ENUM_PROPERTY_VALUES: Record<string, readonly string[]> = {
+    visibility: ['PUBLIC', 'PRIVATE', 'PROTECTED', 'PACKAGE']
+};
+
+const PROPERTY_LABELS: Record<string, string> = {
+    name: 'Name',
+    visibility: 'Visibility'
+};
+
+function isEnumProperty(prop: string): boolean {
+    return prop in ENUM_PROPERTY_VALUES;
+}
+
+function propertyLabel(prop: string): string {
+    return PROPERTY_LABELS[prop] ?? prop;
+}
+
+function getCurrentValue(r: SearchResult, prop: string): string | undefined {
+    if (r.properties && prop in r.properties) return r.properties[prop];
+    // Backwards compat for results predating the properties map.
+    if (prop === 'name' && typeof r.name === 'string') return r.name;
+    return undefined;
+}
+
 export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
     const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [replaceOpen, setReplaceOpen] = useState(false);
+    const [selectedProperty, setSelectedProperty] = useState('name');
+    // Used as the find pattern when `selectedProperty !== 'name'`. For the name
+    // property the find pattern is derived from the search query instead, so we
+    // never need an override field for that case.
+    const [findOverride, setFindOverride] = useState('');
     const [replaceWith, setReplaceWith] = useState('');
     const [caseSensitive, setCaseSensitive] = useState(false);
     const [isRegex, setIsRegex] = useState(false);
@@ -79,9 +111,37 @@ export function AdvancedSearch(): ReactElement {
         }, 150);
     };
 
-    // Find pattern is derived from the search query (pattern portion of `Type:Pattern`,
-    // or the whole query otherwise). One source of truth — no separate Find field.
-    const findPattern = useMemo(() => derivePatternFromQuery(query), [query]);
+    // Find pattern source depends on the selected property: for `name` it's
+    // derived from the search query (single source of truth), for any other
+    // property the user supplies a value via `findOverride`.
+    const findPattern = useMemo(() => {
+        if (selectedProperty === 'name') return derivePatternFromQuery(query);
+        return findOverride.trim();
+    }, [query, selectedProperty, findOverride]);
+
+    // Properties offered in the property selector. Always includes `name` and
+    // the currently selected property (so the dropdown stays valid even when no
+    // row publishes it); other entries come from whatever results expose.
+    const availableProperties = useMemo(() => {
+        const set = new Set<string>(['name']);
+        for (const r of results) {
+            if (r.properties) {
+                for (const k of Object.keys(r.properties)) set.add(k);
+            }
+        }
+        set.add(selectedProperty);
+        return Array.from(set);
+    }, [results, selectedProperty]);
+
+    const onPropertyChange = (next: string) => {
+        setSelectedProperty(next);
+        // Reset transient input so switching property doesn't leak a stale
+        // pattern or replacement.
+        setFindOverride('');
+        setReplaceWith('');
+        setOutcomes(new Map());
+        setReplaceStatus(undefined);
+    };
 
     const highlight = (semanticUri: string | undefined) => {
         if (!clientId || !semanticUri) return;
@@ -119,6 +179,7 @@ export function AdvancedSearch(): ReactElement {
                 elementIds,
                 searchPattern: findPattern,
                 replaceWith,
+                property: selectedProperty,
                 isRegex,
                 caseSensitive
             })
@@ -137,17 +198,22 @@ export function AdvancedSearch(): ReactElement {
         });
     };
 
-    // Per-row preview of new value (client-side; mirrors backend semantics).
-    // Skipped while replace is collapsed so we don't compute previews nobody sees.
+    // Per-row preview of the new value for the selected property (client-side;
+    // mirrors backend semantics). `current` is undefined when the row doesn't
+    // expose the selected property — those rows render as a missing-value
+    // placeholder and stay disabled for replace.
     const previews = useMemo(() => {
-        const map = new Map<string, { newName: string; changes: boolean }>();
+        const map = new Map<string, { current: string | undefined; newValue: string; changes: boolean }>();
         if (!replaceOpen) return map;
         for (const r of results) {
-            const newName = computeNewValue(r.name, findPattern, replaceWith, isRegex, caseSensitive) ?? r.name;
-            map.set(r.id, { newName, changes: newName !== r.name });
+            const current = getCurrentValue(r, selectedProperty);
+            const computed = computeNewValue(current, findPattern, replaceWith, isRegex, caseSensitive);
+            const newValue = typeof computed === 'string' ? computed : (current ?? '');
+            const changes = typeof current === 'string' && newValue !== current;
+            map.set(r.id, { current, newValue, changes });
         }
         return map;
-    }, [results, findPattern, replaceWith, isRegex, caseSensitive, replaceOpen]);
+    }, [results, findPattern, replaceWith, isRegex, caseSensitive, replaceOpen, selectedProperty]);
 
     const includedIds = useMemo(() => results.filter(r => !excludedIds.has(r.id)).map(r => r.id), [results, excludedIds]);
 
@@ -259,6 +325,46 @@ export function AdvancedSearch(): ReactElement {
 
                 {replaceOpen && (
                     <div className='advanced-search__replace-block'>
+                        <div className='advanced-search__property-row'>
+                            <label className='advanced-search__property-field'>
+                                <span className='advanced-search__property-label'>Property</span>
+                                <BSingleSelect
+                                    className='advanced-search__property-select'
+                                    value={selectedProperty}
+                                    onChange={(e: any) => onPropertyChange((e.target as HTMLSelectElement).value)}
+                                >
+                                    {availableProperties.map(p => (
+                                        <BOption key={p} value={p}>
+                                            {propertyLabel(p)}
+                                        </BOption>
+                                    ))}
+                                </BSingleSelect>
+                            </label>
+                            {selectedProperty !== 'name' && (
+                                <label className='advanced-search__property-field advanced-search__property-field--grow'>
+                                    <span className='advanced-search__property-label'>Find</span>
+                                    {isEnumProperty(selectedProperty) ? (
+                                        <BSingleSelect
+                                            value={findOverride}
+                                            onChange={(e: any) => setFindOverride((e.target as HTMLSelectElement).value)}
+                                        >
+                                            <BOption value=''>—</BOption>
+                                            {ENUM_PROPERTY_VALUES[selectedProperty].map(v => (
+                                                <BOption key={v} value={v}>
+                                                    {v}
+                                                </BOption>
+                                            ))}
+                                        </BSingleSelect>
+                                    ) : (
+                                        <BTextfield
+                                            value={findOverride}
+                                            placeholder={`${propertyLabel(selectedProperty)} value to find…`}
+                                            onInput={e => setFindOverride((e.target as HTMLInputElement).value)}
+                                        />
+                                    )}
+                                </label>
+                            )}
+                        </div>
                         <div className='advanced-search__replace-row'>
                             <button
                                 type='button'
@@ -280,21 +386,38 @@ export function AdvancedSearch(): ReactElement {
                             >
                                 <span className='codicon codicon-regex' />
                             </button>
-                            <BTextfield
-                                className='advanced-search__text'
-                                value={replaceWith}
-                                placeholder='Replace with…'
-                                onInput={e => setReplaceWith((e.target as HTMLInputElement).value)}
-                            >
-                                <span slot='end' className='codicon codicon-replace' />
-                            </BTextfield>
+                            {isEnumProperty(selectedProperty) ? (
+                                <BSingleSelect
+                                    className='advanced-search__text'
+                                    value={replaceWith}
+                                    onChange={(e: any) => setReplaceWith((e.target as HTMLSelectElement).value)}
+                                >
+                                    <BOption value=''>Replace with…</BOption>
+                                    {ENUM_PROPERTY_VALUES[selectedProperty].map(v => (
+                                        <BOption key={v} value={v}>
+                                            {v}
+                                        </BOption>
+                                    ))}
+                                </BSingleSelect>
+                            ) : (
+                                <BTextfield
+                                    className='advanced-search__text'
+                                    value={replaceWith}
+                                    placeholder='Replace with…'
+                                    onInput={e => setReplaceWith((e.target as HTMLInputElement).value)}
+                                >
+                                    <span slot='end' className='codicon codicon-replace' />
+                                </BTextfield>
+                            )}
                             <BButton
                                 className='advanced-search__replace-btn'
                                 onClick={() => dispatchReplace(includedIds)}
                                 disabled={replaceAllDisabled}
                                 title={
                                     findPattern === ''
-                                        ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                        ? selectedProperty === 'name'
+                                            ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                            : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find`
                                         : willChangeCount === 0
                                           ? 'No included row would change'
                                           : `Replace ${willChangeCount} element${willChangeCount !== 1 ? 's' : ''}`
@@ -306,8 +429,10 @@ export function AdvancedSearch(): ReactElement {
                         {hasResults && (
                             <p className='advanced-search__replace-hint'>
                                 {findPattern === ''
-                                    ? 'Add text after the type (e.g. Class:User) to preview changes.'
-                                    : `Replacing matches of "${findPattern}" — will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
+                                    ? selectedProperty === 'name'
+                                        ? 'Add text after the type (e.g. Class:User) to preview changes.'
+                                        : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find.`
+                                    : `Replacing matches of "${findPattern}" in ${propertyLabel(selectedProperty).toLowerCase()} — will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
                             </p>
                         )}
                     </div>
@@ -351,14 +476,35 @@ export function AdvancedSearch(): ReactElement {
                                         )}
                                         <BBadge className='result-item__tag'>{item.type}</BBadge>
                                         <span className='result-item__name'>
-                                            {willChange && preview ? (
-                                                <>
-                                                    <span className='result-item__old'>{item.name}</span>
-                                                    <span className='result-item__arrow'> → </span>
-                                                    <span className='result-item__new'>{preview.newName}</span>
-                                                </>
+                                            {selectedProperty === 'name' ? (
+                                                willChange && preview ? (
+                                                    <>
+                                                        <span className='result-item__old'>{item.name}</span>
+                                                        <span className='result-item__arrow'> → </span>
+                                                        <span className='result-item__new'>{preview.newValue}</span>
+                                                    </>
+                                                ) : (
+                                                    item.name
+                                                )
                                             ) : (
-                                                item.name
+                                                <>
+                                                    <span>{item.name}</span>
+                                                    <span className='result-item__prop-preview'>
+                                                        {' · '}
+                                                        <span className='result-item__prop-label'>{propertyLabel(selectedProperty)}:</span>{' '}
+                                                        {preview?.current === undefined ? (
+                                                            <span className='result-item__prop-missing'>—</span>
+                                                        ) : willChange ? (
+                                                            <>
+                                                                <span className='result-item__old'>{preview.current}</span>
+                                                                <span className='result-item__arrow'> → </span>
+                                                                <span className='result-item__new'>{preview.newValue}</span>
+                                                            </>
+                                                        ) : (
+                                                            <span>{preview.current}</span>
+                                                        )}
+                                                    </span>
+                                                </>
                                             )}
                                         </span>
                                         {replaceOpen && outcome && (
@@ -387,10 +533,14 @@ export function AdvancedSearch(): ReactElement {
                                                 className='result-item__action'
                                                 title={
                                                     findPattern === ''
-                                                        ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                                        ? selectedProperty === 'name'
+                                                            ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                                            : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find`
                                                         : willChange
-                                                          ? `Replace this element: ${item.name} → ${preview?.newName}`
-                                                          : 'No change in this element'
+                                                          ? `Replace this element: ${preview?.current ?? item.name} → ${preview?.newValue}`
+                                                          : preview?.current === undefined
+                                                            ? `This element has no ${propertyLabel(selectedProperty).toLowerCase()} property`
+                                                            : 'No change in this element'
                                                 }
                                                 disabled={findPattern === '' || !willChange}
                                                 onClick={e => {

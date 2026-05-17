@@ -101,6 +101,7 @@ export class ClassDiagramMatcher implements IMatcher {
             }
 
             const name = element.name ?? `<<${type}>>`;
+            const properties = this.extractProperties(element);
 
             switch (type) {
                 case 'Class':
@@ -112,7 +113,7 @@ export class ClassDiagramMatcher implements IMatcher {
                 case 'Package':
                 case 'InstanceSpecification':
                 case 'LiteralSpecification':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, properties });
                     break;
 
                 case 'Property':
@@ -121,7 +122,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName)
+                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName),
+                        properties
                     });
                     break;
 
@@ -131,7 +133,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: parentName ? `In ${parentName}` : undefined
+                        details: parentName ? `In ${parentName}` : undefined,
+                        properties
                     });
                     break;
 
@@ -141,7 +144,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName)
+                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName),
+                        properties
                     });
                     break;
 
@@ -151,7 +155,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: parentName ? `In Enumeration ${parentName}` : undefined
+                        details: parentName ? `In Enumeration ${parentName}` : undefined,
+                        properties
                     });
                     break;
 
@@ -161,7 +166,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined
+                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined,
+                        properties
                     });
                     break;
             }
@@ -189,9 +195,26 @@ export class ClassDiagramMatcher implements IMatcher {
                 id: relation.__id,
                 type,
                 name: relationName,
-                details: `${type} from ${sourceName} to ${targetName}`
+                details: `${type} from ${sourceName} to ${targetName}`,
+                properties: this.extractProperties(relation)
             });
         }
+    }
+
+    // Scalar string fields the replace UI is allowed to target. Kept narrow on
+    // purpose: reference-valued props (propertyType.$refText etc.) are deferred
+    // until cross-reference rename lands.
+    private static readonly EDITABLE_STRING_FIELDS = ['name', 'visibility'];
+
+    private extractProperties(element: any): Record<string, string> | undefined {
+        const props: Record<string, string> = {};
+        for (const key of ClassDiagramMatcher.EDITABLE_STRING_FIELDS) {
+            const v = element?.[key];
+            if (typeof v === 'string' && v.length > 0) {
+                props[key] = v;
+            }
+        }
+        return Object.keys(props).length > 0 ? props : undefined;
     }
 
     private buildTypedDetails(typeName?: string, parentName?: string): string | undefined {
