@@ -49,8 +49,7 @@ export function AdvancedSearch(): ReactElement {
     const [query, setQuery] = useState('');
     const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
-    const [find, setFind] = useState('');
-    const [findDirty, setFindDirty] = useState(false);
+    const [replaceOpen, setReplaceOpen] = useState(false);
     const [replaceWith, setReplaceWith] = useState('');
     const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
     const [outcomes, setOutcomes] = useState<Map<string, ReplaceResult>>(new Map());
@@ -62,9 +61,6 @@ export function AdvancedSearch(): ReactElement {
         queryRef.current = value;
         setOutcomes(new Map());
         setReplaceStatus(undefined);
-        if (!findDirty) {
-            setFind(derivePatternFromQuery(value));
-        }
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
             if (clientId) {
@@ -73,10 +69,9 @@ export function AdvancedSearch(): ReactElement {
         }, 150);
     };
 
-    const onFindChange = (value: string) => {
-        setFind(value);
-        setFindDirty(true);
-    };
+    // Find pattern is derived from the search query (pattern portion of `Type:Pattern`,
+    // or the whole query otherwise). One source of truth — no separate Find field.
+    const findPattern = useMemo(() => derivePatternFromQuery(query), [query]);
 
     const highlight = (semanticUri: string | undefined) => {
         if (!clientId || !semanticUri) return;
@@ -105,14 +100,14 @@ export function AdvancedSearch(): ReactElement {
     }, []);
 
     const dispatchReplace = (elementIds: string[]) => {
-        if (!clientId || elementIds.length === 0 || find === '') {
+        if (!clientId || elementIds.length === 0 || findPattern === '') {
             return;
         }
         setReplaceStatus(undefined);
         dispatchAction(
             RequestReplaceAction.create({
                 elementIds,
-                searchPattern: find,
+                searchPattern: findPattern,
                 replaceWith
             })
         );
@@ -131,14 +126,16 @@ export function AdvancedSearch(): ReactElement {
     };
 
     // Per-row preview of new value (client-side; mirrors backend semantics).
+    // Skipped while replace is collapsed so we don't compute previews nobody sees.
     const previews = useMemo(() => {
         const map = new Map<string, { newName: string; changes: boolean }>();
+        if (!replaceOpen) return map;
         for (const r of results) {
-            const newName = computeNewValue(r.name, find, replaceWith) ?? r.name;
+            const newName = computeNewValue(r.name, findPattern, replaceWith) ?? r.name;
             map.set(r.id, { newName, changes: newName !== r.name });
         }
         return map;
-    }, [results, find, replaceWith]);
+    }, [results, findPattern, replaceWith, replaceOpen]);
 
     const includedIds = useMemo(() => results.filter(r => !excludedIds.has(r.id)).map(r => r.id), [results, excludedIds]);
 
@@ -148,7 +145,7 @@ export function AdvancedSearch(): ReactElement {
         [results, excludedIds, previews]
     );
 
-    const replaceAllDisabled = includedIds.length === 0 || find === '' || willChangeCount === 0;
+    const replaceAllDisabled = includedIds.length === 0 || findPattern === '' || willChangeCount === 0;
 
     useEffect(() => {
         const handler = (action: unknown) => {
@@ -227,58 +224,64 @@ export function AdvancedSearch(): ReactElement {
     return (
         <div className='advanced-search'>
             <div className='advanced-search__controls'>
-                <BTextfield
-                    className='advanced-search__text'
-                    value={query}
-                    placeholder='e.g. Class:User*'
-                    onInput={e => fireSearch((e.target as HTMLInputElement).value)}
-                >
-                    <span slot='end' className='codicon codicon-search' />
-                </BTextfield>
-
-                <div className='advanced-search__replace-block'>
+                <div className='advanced-search__search-row'>
+                    <button
+                        type='button'
+                        className={`advanced-search__toggle ${replaceOpen ? 'advanced-search__toggle--open' : ''}`}
+                        title={replaceOpen ? 'Hide replace' : 'Show replace'}
+                        aria-expanded={replaceOpen}
+                        aria-label='Toggle replace'
+                        onClick={() => setReplaceOpen(o => !o)}
+                    >
+                        <span className={`codicon codicon-chevron-${replaceOpen ? 'down' : 'right'}`} />
+                    </button>
                     <BTextfield
                         className='advanced-search__text'
-                        value={find}
-                        placeholder='Find (case-insensitive)…'
-                        onInput={e => onFindChange((e.target as HTMLInputElement).value)}
+                        value={query}
+                        placeholder='e.g. Class:User*'
+                        onInput={e => fireSearch((e.target as HTMLInputElement).value)}
                     >
                         <span slot='end' className='codicon codicon-search' />
                     </BTextfield>
-                    <div className='advanced-search__replace-row'>
-                        <BTextfield
-                            className='advanced-search__text'
-                            value={replaceWith}
-                            placeholder='Replace with…'
-                            onInput={e => setReplaceWith((e.target as HTMLInputElement).value)}
-                        >
-                            <span slot='end' className='codicon codicon-replace' />
-                        </BTextfield>
-                        <BButton
-                            className='advanced-search__replace-btn'
-                            onClick={() => dispatchReplace(includedIds)}
-                            disabled={replaceAllDisabled}
-                            title={
-                                find === ''
-                                    ? 'Enter a Find pattern first'
-                                    : willChangeCount === 0
-                                      ? 'No included row would change'
-                                      : `Replace ${willChangeCount} element${willChangeCount !== 1 ? 's' : ''}`
-                            }
-                        >
-                            Replace All
-                        </BButton>
-                    </div>
-                    {hasResults && (
-                        <p className='advanced-search__replace-hint'>
-                            {find === ''
-                                ? 'Enter a Find pattern to preview changes.'
-                                : `Will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
-                        </p>
-                    )}
                 </div>
 
-                {replaceStatus && (
+                {replaceOpen && (
+                    <div className='advanced-search__replace-block'>
+                        <div className='advanced-search__replace-row'>
+                            <BTextfield
+                                className='advanced-search__text'
+                                value={replaceWith}
+                                placeholder='Replace with…'
+                                onInput={e => setReplaceWith((e.target as HTMLInputElement).value)}
+                            >
+                                <span slot='end' className='codicon codicon-replace' />
+                            </BTextfield>
+                            <BButton
+                                className='advanced-search__replace-btn'
+                                onClick={() => dispatchReplace(includedIds)}
+                                disabled={replaceAllDisabled}
+                                title={
+                                    findPattern === ''
+                                        ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                        : willChangeCount === 0
+                                          ? 'No included row would change'
+                                          : `Replace ${willChangeCount} element${willChangeCount !== 1 ? 's' : ''}`
+                                }
+                            >
+                                Replace All
+                            </BButton>
+                        </div>
+                        {hasResults && (
+                            <p className='advanced-search__replace-hint'>
+                                {findPattern === ''
+                                    ? 'Add text after the type (e.g. Class:User) to preview changes.'
+                                    : `Replacing matches of "${findPattern}" — will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
+                            </p>
+                        )}
+                    </div>
+                )}
+
+                {replaceOpen && replaceStatus && (
                     <div
                         className={`advanced-search__replace-status advanced-search__replace-status--${replaceStatus.ok ? 'ok' : 'error'}`}
                     >
@@ -300,18 +303,20 @@ export function AdvancedSearch(): ReactElement {
                             return (
                                 <li
                                     key={`${item.id}-${idx}`}
-                                    className={`result-item ${excluded ? 'result-item--excluded' : ''} ${willChange ? 'result-item--will-change' : ''}`}
+                                    className={`result-item ${replaceOpen && excluded ? 'result-item--excluded' : ''} ${willChange ? 'result-item--will-change' : ''}`}
                                     onClick={() => highlight((item as any).semanticUri ?? item.id)}
                                 >
                                     <div className='result-item__header'>
-                                        <input
-                                            type='checkbox'
-                                            className='result-item__include'
-                                            checked={!excluded}
-                                            title={excluded ? 'Include in Replace All' : 'Exclude from Replace All'}
-                                            onChange={() => toggleExcluded(item.id)}
-                                            onClick={e => e.stopPropagation()}
-                                        />
+                                        {replaceOpen && (
+                                            <input
+                                                type='checkbox'
+                                                className='result-item__include'
+                                                checked={!excluded}
+                                                title={excluded ? 'Include in Replace All' : 'Exclude from Replace All'}
+                                                onChange={() => toggleExcluded(item.id)}
+                                                onClick={e => e.stopPropagation()}
+                                            />
+                                        )}
                                         <BBadge className='result-item__tag'>{item.type}</BBadge>
                                         <span className='result-item__name'>
                                             {willChange && preview ? (
@@ -324,7 +329,7 @@ export function AdvancedSearch(): ReactElement {
                                                 item.name
                                             )}
                                         </span>
-                                        {outcome && (
+                                        {replaceOpen && outcome && (
                                             <span
                                                 className={`result-item__outcome result-item__outcome--${
                                                     !outcome.success ? 'error' : outcome.changed ? 'changed' : 'noop'
@@ -344,24 +349,26 @@ export function AdvancedSearch(): ReactElement {
                                                 />
                                             </span>
                                         )}
-                                        <button
-                                            type='button'
-                                            className='result-item__action'
-                                            title={
-                                                find === ''
-                                                    ? 'Enter a Find pattern first'
-                                                    : willChange
-                                                      ? `Replace this element: ${item.name} → ${preview?.newName}`
-                                                      : 'No change in this element'
-                                            }
-                                            disabled={find === '' || !willChange}
-                                            onClick={e => {
-                                                e.stopPropagation();
-                                                dispatchReplace([item.id]);
-                                            }}
-                                        >
-                                            <span className='codicon codicon-replace' />
-                                        </button>
+                                        {replaceOpen && (
+                                            <button
+                                                type='button'
+                                                className='result-item__action'
+                                                title={
+                                                    findPattern === ''
+                                                        ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                                        : willChange
+                                                          ? `Replace this element: ${item.name} → ${preview?.newName}`
+                                                          : 'No change in this element'
+                                                }
+                                                disabled={findPattern === '' || !willChange}
+                                                onClick={e => {
+                                                    e.stopPropagation();
+                                                    dispatchReplace([item.id]);
+                                                }}
+                                            >
+                                                <span className='codicon codicon-replace' />
+                                            </button>
+                                        )}
                                     </div>
                                     {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
                                     {item.details && <div className='result-item__details'>{item.details}</div>}
