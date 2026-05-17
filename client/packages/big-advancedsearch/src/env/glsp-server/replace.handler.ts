@@ -39,6 +39,10 @@ export class ReplaceActionHandler implements ActionHandler {
             return [ReplaceActionResponse.create({ ok: false, error: `Invalid property name: "${property}"` })];
         }
 
+        if (action.searchPattern === '') {
+            return [ReplaceActionResponse.create({ ok: false, error: 'Find pattern must not be empty.' })];
+        }
+
         if (action.isRegex) {
             try {
                 new RegExp(action.searchPattern);
@@ -53,30 +57,37 @@ export class ReplaceActionHandler implements ActionHandler {
         for (const id of action.elementIds) {
             const node = this.modelState.index.findIdElement(id);
             if (!node) {
-                results.push({ id, property, success: false, error: 'Element not found' });
+                results.push({ id, property, success: false, changed: false, error: 'Element not found' });
                 continue;
             }
 
             const path = this.modelState.index.findPath(id);
             if (!path) {
-                results.push({ id, property, success: false, error: 'JSON path not found' });
+                results.push({ id, property, success: false, changed: false, error: 'JSON path not found' });
                 continue;
             }
 
             const oldValue = (node as any)[property];
             if (typeof oldValue !== 'string') {
-                results.push({ id, property, oldValue: String(oldValue ?? ''), success: false, error: `Property "${property}" is not a string` });
+                results.push({
+                    id,
+                    property,
+                    oldValue: String(oldValue ?? ''),
+                    success: false,
+                    changed: false,
+                    error: `Property "${property}" is not a string`
+                });
                 continue;
             }
 
             const newValue = this.applyReplacement(oldValue, action.searchPattern, action.replaceWith, action.isRegex ?? false);
             if (newValue === oldValue) {
-                results.push({ id, property, oldValue, newValue, success: true });
+                results.push({ id, property, oldValue, newValue, success: true, changed: false });
                 continue;
             }
 
             patchOps.push({ op: 'replace', path: path + '/' + property, value: newValue });
-            results.push({ id, property, oldValue, newValue, success: true });
+            results.push({ id, property, oldValue, newValue, success: true, changed: true });
         }
 
         if (patchOps.length > 0) {
@@ -90,12 +101,13 @@ export class ReplaceActionHandler implements ActionHandler {
     }
 
     protected applyReplacement(value: string, searchPattern: string, replaceWith: string, isRegex: boolean): string {
+        if (searchPattern === '') {
+            return value;
+        }
         if (isRegex) {
             return value.replace(new RegExp(searchPattern, 'g'), replaceWith);
         }
-        if (searchPattern === '') {
-            return replaceWith;
-        }
-        return value.split(searchPattern).join(replaceWith);
+        const escaped = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        return value.replace(new RegExp(escaped, 'gi'), replaceWith);
     }
 }

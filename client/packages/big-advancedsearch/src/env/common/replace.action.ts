@@ -15,6 +15,8 @@ export interface ReplaceResult {
     oldValue?: string;
     newValue?: string;
     success: boolean;
+    /** True if the value was actually mutated. False for skipped / no-op / errored rows. */
+    changed?: boolean;
     error?: string;
 }
 
