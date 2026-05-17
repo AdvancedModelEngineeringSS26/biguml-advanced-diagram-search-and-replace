@@ -69,3 +69,21 @@
 .result-item:hover .result-item__details {
     display: block;
 }
+
+.sprotty .search-match > .sprotty-node,
+.sprotty .search-match > .sprotty-label {
+    outline: 2px solid var(--vscode-focusBorder, #007fd4);
+    outline-offset: 2px;
+    background-color: rgba(0, 127, 212, 0.08);
+    border-radius: 2px;
+}
+
+.sprotty.search-active .sprotty-graph > g:not(.search-match) {
+    opacity: 0.25;
+    transition: opacity 150ms ease;
+}
+
+.sprotty.search-active .search-match {
+    opacity: 1;
+    transition: opacity 150ms ease;
+}
