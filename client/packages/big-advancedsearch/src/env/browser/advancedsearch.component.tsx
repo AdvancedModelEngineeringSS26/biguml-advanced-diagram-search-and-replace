@@ -13,6 +13,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, type Rea
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
+import { UndoNotification } from '../common/undo.notification.js';
 
 import type { SearchResult } from '../common/searchresult.js';
 
@@ -20,6 +21,8 @@ interface ReplaceStatus {
     ok: boolean;
     message: string;
     detail?: string;
+    /** True after a successful replace that actually mutated at least one row. */
+    canUndo?: boolean;
 }
 
 function escapeRegex(value: string): string {
@@ -80,7 +83,7 @@ function getCurrentValue(r: SearchResult, prop: string): string | undefined {
 }
 
 export function AdvancedSearch(): ReactElement {
-    const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
+    const { clientId, dispatchAction, dispatchNotification, listenAction } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
     const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
@@ -273,8 +276,9 @@ export function AdvancedSearch(): ReactElement {
                             : undefined;
                     setReplaceStatus({
                         ok: true,
-                        message: `Replaced ${changedRows.length} element${changedRows.length !== 1 ? 's' : ''}. Use Editor > Undo (Ctrl+Z) to revert.`,
-                        detail
+                        message: `Replaced ${changedRows.length} element${changedRows.length !== 1 ? 's' : ''}.`,
+                        detail,
+                        canUndo: changedRows.length > 0
                     });
                     // Refresh the result list so names reflect the new model state.
                     if (clientId) {
@@ -443,7 +447,18 @@ export function AdvancedSearch(): ReactElement {
                         className={`advanced-search__replace-status advanced-search__replace-status--${replaceStatus.ok ? 'ok' : 'error'}`}
                     >
                         <span className={`codicon codicon-${replaceStatus.ok ? 'check' : 'error'}`} />
-                        <span>{replaceStatus.message}</span>
+                        <span className='advanced-search__replace-status-message'>{replaceStatus.message}</span>
+                        {replaceStatus.canUndo && (
+                            <button
+                                type='button'
+                                className='advanced-search__undo-btn'
+                                title='Undo this replace (Ctrl+Z)'
+                                onClick={() => dispatchNotification(UndoNotification.TYPE)}
+                            >
+                                <span className='codicon codicon-discard' />
+                                <span>Undo</span>
+                            </button>
+                        )}
                         {replaceStatus.detail && <small>{replaceStatus.detail}</small>}
                     </div>
                 )}
