@@ -298,7 +298,7 @@ export function AdvancedSearch(): ReactElement {
                 sprottyRoot.querySelectorAll('.search-match').forEach(el => el.classList.remove('search-match'));
             }
         };
-    }, [listenAction, applyDiagramHighlighting]);
+    }, [listenAction, applyDiagramHighlighting, clientId, dispatchAction]);
 
     const hasResults = results.length > 0;
     const isSearching = query.trim().length > 0;
