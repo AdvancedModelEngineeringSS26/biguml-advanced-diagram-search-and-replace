@@ -152,7 +152,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected prefetchSvg(): void {
         if (!this.currentDiagramSvg && !this.svgExportInFlight && this.connectionManager.hasActiveClient()) {
             this.svgExportInFlight = true;
-            this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
+            this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create({ options: { skipCopyStyles: true } }));
             this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: true }));
         }
     }
