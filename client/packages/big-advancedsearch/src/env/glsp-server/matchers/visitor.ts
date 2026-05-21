@@ -37,7 +37,14 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
         }
 
         if (children.searchElement) {
-            criteria.children = children.searchElement.map((child: any) => this.visit(child));
+            for (const child of children.searchElement) {
+                const childCriteria = this.visit(child) as SearchCriteria;
+                criteria.children.push({
+                    ...childCriteria,
+                    children: []
+                });
+                criteria.children.push(...childCriteria.children);
+            }
         }
 
         this.validateFilters(criteria);
@@ -95,7 +102,7 @@ class ModelAstBuilderVisitor extends BaseCstVisitor {
             children.BooleanLiteral?.[0] ??
             children.IntegerLiteral?.[0] ??
             children.Identifier?.[0] ??
-            children.searchElement?.[0];        
+            children.searchElement?.[0];
 
         if (children.searchElement) {
             return {
