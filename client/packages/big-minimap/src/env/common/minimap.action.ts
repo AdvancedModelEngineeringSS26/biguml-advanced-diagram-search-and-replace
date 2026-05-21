@@ -24,7 +24,7 @@ export namespace RequestMinimapExportSvgAction {
         return RequestAction.hasKind(object, KIND);
     }
 
-    export function create(options: { requestId?: string; options?: ExportSvgOptions } = {}): RequestMinimapExportSvgAction {
+    export function create(options: { requestId?: string } = {}): RequestMinimapExportSvgAction {
         return {
             kind: KIND,
             requestId: '',
