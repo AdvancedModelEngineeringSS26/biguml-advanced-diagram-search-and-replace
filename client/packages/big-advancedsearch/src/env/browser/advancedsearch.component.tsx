@@ -8,17 +8,99 @@
  **********************************************************************************/
 
 import { BBadge, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
-import { useCallback, useContext, useEffect, useRef, useState, type ReactElement } from 'react';
+import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
 
 import type { SearchResult } from '../common/searchresult.js';
+import { SearchResultThumbnail } from './search-result-thumbnail.component.js';
+
+interface ExtractedElement {
+    svgContent: string;
+    bounds: { x: number; y: number; width: number; height: number };
+}
+
+/**
+ * Parse the full diagram SVG and extract per-element `<g>` subtrees by their ID.
+ * Sprotty assigns element IDs to `<g>` groups in the rendered SVG.
+ */
+function extractElementsFromSvg(fullSvg: string): Map<string, ExtractedElement> {
+    const map = new Map<string, ExtractedElement>();
+
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(fullSvg, 'image/svg+xml');
+
+    // Collect shared <defs> (markers, gradients, etc.)
+    const defs = doc.querySelector('defs');
+    const defsMarkup = defs ? new XMLSerializer().serializeToString(defs) : '';
+
+    const serializer = new XMLSerializer();
+
+    // Find all <g> elements with an id attribute
+    const groups = doc.querySelectorAll('g[id]');
+
+    for (const group of groups) {
+        const elementId = group.getAttribute('id');
+        if (!elementId) {
+            continue;
+        }
+
+        // Parse bounds from the element structure:
+        // Sprotty <g> elements use transform="translate(x, y)" for position
+        // and child <rect> elements for dimensions.
+        const bounds = parseSprottyBounds(group);
+        if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+            continue;
+        }
+
+        const innerMarkup = serializer.serializeToString(group);
+
+        // Sprotty prefixes element IDs (e.g. "uml-diagram_0_<semanticId>").
+        // Extract the semantic ID by finding the last UUID-like segment.
+        const lastUnderscoreIdx = elementId.lastIndexOf('_');
+        const semanticId = lastUnderscoreIdx >= 0 ? elementId.substring(lastUnderscoreIdx + 1) : elementId;
+        map.set(semanticId, {
+            svgContent: defsMarkup + innerMarkup,
+            bounds
+        });
+    }
+
+    return map;
+}
+
+/**
+ * Extract position and size from a Sprotty-rendered `<g>` element.
+ * Position comes from `transform="translate(x, y)"`.
+ * Size comes from the first child `<rect>` with width/height attributes.
+ */
+function parseSprottyBounds(group: Element): { x: number; y: number; width: number; height: number } | undefined {
+    // Parse translate(x, y) from transform attribute
+    const transform = group.getAttribute('transform') ?? '';
+    const translateMatch = transform.match(/translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
+    const x = translateMatch ? parseFloat(translateMatch[1]) : 0;
+    const y = translateMatch ? parseFloat(translateMatch[2]) : 0;
+
+    // Find the first <rect> child for dimensions
+    const rect = group.querySelector('rect');
+    if (rect) {
+        const width = parseFloat(rect.getAttribute('width') ?? '0');
+        const height = parseFloat(rect.getAttribute('height') ?? '0');
+        if (width > 0 && height > 0) {
+            return { x, y, width, height };
+        }
+    }
+
+    return undefined;
+}
 
 export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
+    const [svgLoading, setSvgLoading] = useState(false);
+    const [svgPrefetching, setSvgPrefetching] = useState(false);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fireSearch = (value: string) => {
@@ -26,6 +108,9 @@ export function AdvancedSearch(): ReactElement {
         if (debounceTimer.current) clearTimeout(debounceTimer.current);
         debounceTimer.current = setTimeout(() => {
             if (clientId) {
+                if (!fullDiagramSvg) {
+                    setSvgLoading(true);
+                }
                 dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
             }
         }, 150);
@@ -35,6 +120,14 @@ export function AdvancedSearch(): ReactElement {
         if (!clientId || !semanticUri) return;
         dispatchAction(RequestHighlightElementAction.create({ semanticUri }));
     };
+
+    // Parse the full SVG once and build a lookup map of elementId → { svgContent, bounds }
+    const svgElementMap = useMemo(() => {
+        if (!fullDiagramSvg) {
+            return new Map<string, ExtractedElement>();
+        }
+        return extractElementsFromSvg(fullDiagramSvg);
+    }, [fullDiagramSvg]);
 
     const applyDiagramHighlighting = useCallback((matchedIds: string[]) => {
         const sprottyRoot = document.querySelector('.sprotty');
@@ -51,7 +144,6 @@ export function AdvancedSearch(): ReactElement {
         });
 
         for (const id of matchedIds) {
-            // GLSP renders elements with id attribute matching the semantic id
             const el = sprottyRoot.querySelector(`[id="${id}"]`);
             if (el) el.classList.add('search-match');
         }
@@ -60,15 +152,33 @@ export function AdvancedSearch(): ReactElement {
     useEffect(() => {
         const handler = (action: unknown) => {
             if (AdvancedSearchActionResponse.is(action)) {
-                setResults(action.results);
-                const ids = action.results.map(r => r.id).filter(Boolean);
-                applyDiagramHighlighting(ids);
+                if (action.svgLoading === true) {
+                    // SVG prefetch started — show loading indicator, keep existing results
+                    setSvgPrefetching(true);
+                } else if (action.svgLoading === false) {
+                    // SVG prefetch done, no pending search — just clear loading indicators
+                    setSvgPrefetching(false);
+                    setSvgLoading(false);
+                } else {
+                    // Normal results update
+                    setSvgPrefetching(false);
+                    setResults(action.results);
+                    const ids = action.results.map(r => r.id).filter(Boolean);
+                    applyDiagramHighlighting(ids);
+                    if (action.fullDiagramSvg) {
+                        setFullDiagramSvg(action.fullDiagramSvg);
+                        setSvgLoading(false);
+                    } else if (action.results.length > 0) {
+                        setSvgLoading(true);
+                    } else {
+                        setFullDiagramSvg(undefined);
+                        setSvgLoading(false);
+                    }
+                }
             }
             if (HighlightElementActionResponse.is(action)) {
-                if (HighlightElementActionResponse.is(action)) {
-                    if (action.ok) {
-                        return;
-                    }
+                if (action.ok) {
+                    return;
                 }
             }
         };
@@ -83,9 +193,6 @@ export function AdvancedSearch(): ReactElement {
         };
     }, [listenAction, applyDiagramHighlighting]);
 
-    const hasResults = results.length > 0;
-    const isSearching = query.trim().length > 0;
-
     return (
         <div className='advanced-search'>
             <div className='advanced-search__controls'>
@@ -99,23 +206,33 @@ export function AdvancedSearch(): ReactElement {
                 </BTextfield>
             </div>
 
+            {(svgPrefetching || svgLoading) && <div className='advanced-search__svg-loading-bar' />}
+
             <div>
-                {hasResults ? (
+                {results.length > 0 ? (
                     <ul className='advanced-search__results'>
-                        {results.map((item, idx) => (
-                            <li key={idx} className='result-item' onClick={() => highlight((item as any).semanticUri ?? item.id)}>
-                                <div className='result-item__header'>
-                                    <BBadge className='result-item__tag'>{item.type}</BBadge>
-                                    <span className='result-item__name'>{item.name}</span>
-                                </div>
-                                {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
-                                {item.details && <div className='result-item__details'>{item.details}</div>}
-                            </li>
-                        ))}
+                        {results.map((item, idx) => {
+                            const extracted = svgElementMap.get(item.id);
+                            return (
+                                <li key={idx} className='result-item' onClick={() => highlight((item as any).semanticUri ?? item.id)}>
+                                    <div className='result-item__header'>
+                                        <BBadge className='result-item__tag'>{item.type}</BBadge>
+                                        <span className='result-item__name'>{item.name}</span>
+                                    </div>
+                                    {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
+                                    {item.details && <div className='result-item__details'>{item.details}</div>}
+                                    <SearchResultThumbnail
+                                        svg={extracted?.svgContent}
+                                        bounds={extracted?.bounds}
+                                        loading={svgLoading}
+                                    />
+                                </li>
+                            );
+                        })}
                     </ul>
-                ) : isSearching ? (
-                    <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>
-                ) : null}
+                ) : svgPrefetching ? null : (
+                    <p>No results found.</p>
+                )}
             </div>
         </div>
     );

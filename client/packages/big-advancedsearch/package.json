@@ -60,6 +60,7 @@
   },
   "dependencies": {
     "@borkdominik-biguml/big-components": "*",
+    "@borkdominik-biguml/big-minimap": "*",
     "@borkdominik-biguml/big-vscode": "*",
     "@borkdominik-biguml/uml-glsp-server": "*",
     "@borkdominik-biguml/uml-model-server": "*",
