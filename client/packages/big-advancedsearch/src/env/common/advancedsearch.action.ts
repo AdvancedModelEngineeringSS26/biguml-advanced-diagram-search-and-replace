@@ -8,6 +8,7 @@
  *********************************************************************************/
 
 import { Action, RequestAction, type ResponseAction } from '@eclipse-glsp/protocol';
+import type { SearchResult } from './searchresult.js';
 
 /**
  * Request sent from WebView to backend to initiate an advanced search.
@@ -38,13 +39,10 @@ export namespace RequestAdvancedSearchAction {
  */
 export interface AdvancedSearchActionResponse extends ResponseAction {
     kind: typeof AdvancedSearchActionResponse.KIND;
-    results: {
-        id: string;
-        type: string;
-        name: string;
-        parentName?: string;
-        details?: string;
-    }[];
+    results: SearchResult[];
+    fullDiagramSvg?: string;
+    /** true = SVG prefetch started; false = prefetch done (no pending search); undefined = normal results update */
+    svgLoading?: boolean;
 }
 
 export namespace AdvancedSearchActionResponse {
@@ -55,12 +53,14 @@ export namespace AdvancedSearchActionResponse {
     }
 
     export function create(
-        options?: Omit<AdvancedSearchActionResponse, 'kind' | 'responseId'> & { responseId?: string }
+        options?: Partial<Omit<AdvancedSearchActionResponse, 'kind' | 'responseId'>> & { responseId?: string }
     ): AdvancedSearchActionResponse {
         return {
             kind: KIND,
             responseId: options?.responseId ?? '',
-            results: options?.results ?? []
+            results: options?.results ?? [],
+            fullDiagramSvg: options?.fullDiagramSvg,
+            svgLoading: options?.svgLoading
         };
     }
 }
