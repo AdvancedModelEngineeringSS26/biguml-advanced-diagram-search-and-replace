@@ -1,0 +1,315 @@
+{
+	"diagram": {
+		"__type": "ClassDiagram",
+		"__id": "ClassDiagram1",
+		"diagramType": "CLASS",
+		"entities": [
+			{
+				"__type": "Class",
+				"__id": "ace453d7e-00fd-44e3-ae16-86f5e83fbfb9",
+				"name": "Company",
+				"isAbstract": false,
+				"properties": [
+					{
+						"__type": "Property",
+						"__id": "aaa623534-ec17-4675-b07f-84ba1d75d9fd",
+						"name": "company_name",
+						"isDerived": false,
+						"isOrdered": false,
+						"isStatic": false,
+						"isDerivedUnion": false,
+						"isReadOnly": false,
+						"isUnique": false,
+						"visibility": "PRIVATE"
+					}
+				],
+				"operations": [],
+				"isActive": false,
+				"visibility": "PUBLIC",
+				"skip": false
+			},
+			{
+				"__type": "Class",
+				"__id": "ac254e857-7c9f-429e-aead-e4e419d7bd82",
+				"name": "Vehicle",
+				"isAbstract": false,
+				"properties": [
+					{
+						"__type": "Property",
+						"__id": "ab386387a-6cf4-4538-9233-f63e531e066b",
+						"name": "registration_number",
+						"isDerived": false,
+						"isOrdered": false,
+						"isStatic": false,
+						"isDerivedUnion": false,
+						"isReadOnly": false,
+						"isUnique": false,
+						"visibility": "PRIVATE"
+					}
+				],
+				"operations": [],
+				"isActive": false,
+				"visibility": "PUBLIC",
+				"skip": false
+			},
+			{
+				"__type": "Class",
+				"__id": "ac6fcc3d9-31f4-43cc-9dc9-d0211ef6202d",
+				"name": "Employee",
+				"isAbstract": false,
+				"properties": [
+					{
+						"__type": "Property",
+						"__id": "af212de8c-ac9a-4e05-92e6-8689ac9ed66c",
+						"name": "employee_name",
+						"isDerived": false,
+						"isOrdered": false,
+						"isStatic": false,
+						"isDerivedUnion": false,
+						"isReadOnly": false,
+						"isUnique": false,
+						"visibility": "PRIVATE"
+					}
+				],
+				"operations": [],
+				"isActive": false,
+				"visibility": "PUBLIC",
+				"skip": false
+			},
+			{
+				"__type": "Class",
+				"__id": "a362729de-c1df-4157-855b-89d2c8ca7d81",
+				"name": "Truck",
+				"isAbstract": false,
+				"properties": [
+					{
+						"__type": "Property",
+						"__id": "a76a9a6a9-d33f-45eb-bd56-c668fe58f8f8",
+						"name": "mass",
+						"isDerived": false,
+						"isOrdered": false,
+						"isStatic": false,
+						"isDerivedUnion": false,
+						"isReadOnly": false,
+						"isUnique": false,
+						"visibility": "PRIVATE"
+					}
+				],
+				"operations": [],
+				"isActive": false,
+				"visibility": "PUBLIC",
+				"skip": false
+			},
+			{
+				"__type": "Class",
+				"__id": "a2a5788ca-788c-496b-b3e3-bc86d061c468",
+				"name": "Car",
+				"isAbstract": false,
+				"properties": [
+					{
+						"__type": "Property",
+						"__id": "a26876ca0-af23-4f0c-9bdc-dc0919b9ad8d",
+						"name": "transmission",
+						"isDerived": false,
+						"isOrdered": false,
+						"isStatic": false,
+						"isDerivedUnion": false,
+						"isReadOnly": false,
+						"isUnique": false,
+						"visibility": "PRIVATE"
+					}
+				],
+				"operations": [],
+				"isActive": false,
+				"visibility": "PUBLIC",
+				"skip": false
+			}
+		],
+		"relations": [
+			{
+				"__type": "Generalization",
+				"__id": "a8966854f-42b5-4911-8de1-0e4a79d7c163",
+				"isSubstitutable": false,
+				"source": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "a362729de-c1df-4157-855b-89d2c8ca7d81"
+				},
+				"target": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "ac254e857-7c9f-429e-aead-e4e419d7bd82"
+				},
+				"relationType": "GENERALIZATION"
+			},
+			{
+				"__type": "Generalization",
+				"__id": "a9a35e83a-3e46-490b-9395-9b1201d08be8",
+				"isSubstitutable": false,
+				"source": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "a2a5788ca-788c-496b-b3e3-bc86d061c468"
+				},
+				"target": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "ac254e857-7c9f-429e-aead-e4e419d7bd82"
+				},
+				"relationType": "GENERALIZATION"
+			},
+			{
+				"__type": "Association",
+				"__id": "ad95f89bc-7221-4a4a-9cea-077d3cfc8e3a",
+				"sourceMultiplicity": "*",
+				"targetMultiplicity": "*",
+				"sourceAggregation": "NONE",
+				"targetAggregation": "NONE",
+				"visibility": "PUBLIC",
+				"source": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "ac6fcc3d9-31f4-43cc-9dc9-d0211ef6202d"
+				},
+				"target": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "ac254e857-7c9f-429e-aead-e4e419d7bd82"
+				},
+				"relationType": "ASSOCIATION"
+			},
+			{
+				"__type": "Association",
+				"__id": "a40276397-6cfe-4ed3-8777-e5f2018ba8bc",
+				"sourceMultiplicity": "*",
+				"targetMultiplicity": "*",
+				"sourceAggregation": "NONE",
+				"targetAggregation": "NONE",
+				"visibility": "PUBLIC",
+				"source": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "ace453d7e-00fd-44e3-ae16-86f5e83fbfb9"
+				},
+				"target": {
+					"__type": "Reference",
+					"__refType": "Node",
+					"__value": "ac6fcc3d9-31f4-43cc-9dc9-d0211ef6202d"
+				},
+				"relationType": "ASSOCIATION"
+			}
+		]
+	},
+	"metaInfos": [
+		{
+			"__type": "Size",
+			"__id": "size_ace453d7e-00fd-44e3-ae16-86f5e83fbfb9",
+			"height": 87,
+			"width": 130.5,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "ace453d7e-00fd-44e3-ae16-86f5e83fbfb9"
+			}
+		},
+		{
+			"__type": "Position",
+			"__id": "pos_ace453d7e-00fd-44e3-ae16-86f5e83fbfb9",
+			"x": 181,
+			"y": 104,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "ace453d7e-00fd-44e3-ae16-86f5e83fbfb9"
+			}
+		},
+		{
+			"__type": "Size",
+			"__id": "size_ac254e857-7c9f-429e-aead-e4e419d7bd82",
+			"height": 87,
+			"width": 154.287109375,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "ac254e857-7c9f-429e-aead-e4e419d7bd82"
+			}
+		},
+		{
+			"__type": "Position",
+			"__id": "pos_ac254e857-7c9f-429e-aead-e4e419d7bd82",
+			"x": 560,
+			"y": 374,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "ac254e857-7c9f-429e-aead-e4e419d7bd82"
+			}
+		},
+		{
+			"__type": "Size",
+			"__id": "size_ac6fcc3d9-31f4-43cc-9dc9-d0211ef6202d",
+			"height": 87,
+			"width": 134.125,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "ac6fcc3d9-31f4-43cc-9dc9-d0211ef6202d"
+			}
+		},
+		{
+			"__type": "Position",
+			"__id": "pos_ac6fcc3d9-31f4-43cc-9dc9-d0211ef6202d",
+			"x": 187,
+			"y": 373,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "ac6fcc3d9-31f4-43cc-9dc9-d0211ef6202d"
+			}
+		},
+		{
+			"__type": "Size",
+			"__id": "size_a362729de-c1df-4157-855b-89d2c8ca7d81",
+			"height": 87,
+			"width": 80,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "a362729de-c1df-4157-855b-89d2c8ca7d81"
+			}
+		},
+		{
+			"__type": "Position",
+			"__id": "pos_a362729de-c1df-4157-855b-89d2c8ca7d81",
+			"x": 432,
+			"y": 644,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "a362729de-c1df-4157-855b-89d2c8ca7d81"
+			}
+		},
+		{
+			"__type": "Size",
+			"__id": "size_a2a5788ca-788c-496b-b3e3-bc86d061c468",
+			"height": 87,
+			"width": 111.96875,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "a2a5788ca-788c-496b-b3e3-bc86d061c468"
+			}
+		},
+		{
+			"__type": "Position",
+			"__id": "pos_a2a5788ca-788c-496b-b3e3-bc86d061c468",
+			"x": 727,
+			"y": 650,
+			"element": {
+				"__type": "Reference",
+				"__refType": "ElementWithSizeAndPosition",
+				"__value": "a2a5788ca-788c-496b-b3e3-bc86d061c468"
+			}
+		}
+	]
+}
