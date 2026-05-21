@@ -100,13 +100,6 @@
     display: block;
 }
 
-.advanced-search__idle {
-    color: var(--vscode-descriptionForeground, #999);
-    font-size: 0.85rem;
-    padding: 0.5rem 0.25rem;
-    margin: 0;
-}
-
 /* Panel-level SVG loading indicator — shown during prefetch and thumbnail loading */
 .advanced-search__svg-loading-bar {
     height: 2px;
@@ -153,4 +146,23 @@
     100% {
         background-position: -200% 0;
     }
+}
+
+/* Diagram element highlighting when search is active */
+.sprotty .search-match > .sprotty-node,
+.sprotty .search-match > .sprotty-label {
+    outline: 2px solid var(--vscode-focusBorder, #007fd4);
+    outline-offset: 2px;
+    background-color: rgba(0, 127, 212, 0.08);
+    border-radius: 2px;
+}
+
+.sprotty.search-active .sprotty-graph > g:not(.search-match) {
+    opacity: 0.25;
+    transition: opacity 150ms ease;
+}
+
+.sprotty.search-active .search-match {
+    opacity: 1;
+    transition: opacity 150ms ease;
 }

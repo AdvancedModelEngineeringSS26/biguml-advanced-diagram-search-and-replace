@@ -7,9 +7,14 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import type { ClassDiagram } from '@borkdominik-biguml/uml-model-server/grammar';
+// classmatcher.ts
+
+import type { ClassDiagram, ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
+
 import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
+import { matchesCriteriaOnElement } from './matcher-utils.js';
+import type { SearchCriteria } from './search-ast.js';
 import { SharedElementCollector } from './sharedcollector.js';
 
 export class ClassDiagramMatcher implements IMatcher {
@@ -47,7 +52,7 @@ export class ClassDiagramMatcher implements IMatcher {
     }
 
     supportsPartial(partialType: string): boolean {
-        return this.supportedTypes.some(t => t.startsWith(partialType.toLowerCase()));
+        return this.supportedTypes.some(type => type.startsWith(partialType.toLowerCase()));
     }
 
     supportsList(): string[] {
@@ -56,134 +61,166 @@ export class ClassDiagramMatcher implements IMatcher {
 
     match(diagram: ClassDiagram): SearchResult[] {
         const results: SearchResult[] = [];
+        const idToName = this.collectIdToName(diagram);
+
+        this.collectNodeResults(diagram, results);
+        this.collectRelationResults(diagram, results, idToName);
+
+        return results;
+    }
+
+    matchAdvanced(diagram: ClassDiagram, criteria: SearchCriteria): SearchResult[] {
+        const candidates = this.match(diagram);
+        const diagramIndex = this.buildDiagramIndex(diagram);
+
+        return candidates.filter(candidate => {
+            const element = diagramIndex.get(candidate.id);
+            return matchesCriteriaOnElement(element, criteria, diagramIndex);
+        });
+    }
+
+    private collectIdToName(diagram: ClassDiagram): Map<string, string> {
         const idToName = new Map<string, string>();
 
-        // First pass: collect all names for cross-reference resolution
         SharedElementCollector.collectRecursively(diagram as any, element => {
             if (element.__id && element.$type) {
                 idToName.set(element.__id, element.name ?? `<<${element.$type}>>`);
             }
         });
 
-        // Second pass: build search results from entities
+        return idToName;
+    }
+
+    private collectNodeResults(diagram: ClassDiagram, results: SearchResult[]): void {
         SharedElementCollector.collectRecursively(diagram as any, (element, parentName) => {
             const type = element.$type;
-            if (!type || !element.__id) return;
+            const id = element.__id;
+
+            if (!type || !id) {
+                return;
+            }
 
             const name = element.name ?? `<<${type}>>`;
-            const id = element.__id;
 
             switch (type) {
                 case 'Class':
                 case 'AbstractClass':
                 case 'Interface':
                 case 'DataType':
-                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
+                case 'Enumeration':
+                case 'PrimitiveType':
+                case 'Package':
+                case 'InstanceSpecification':
+                case 'LiteralSpecification':
+                    results.push({ id, type, name, parentName });
                     break;
-                case 'Property': {
-                    const typeName = element.propertyType?.$refText;
+
+                case 'Property':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: typeName ? `${typeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined,
-                        svg: undefined,
-                        bounds: undefined
+                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName)
                     });
                     break;
-                }
+
                 case 'Operation':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: parentName ? `In ${parentName}` : undefined,
-                        svg: undefined,
-                        bounds: undefined
+                        details: parentName ? `In ${parentName}` : undefined
                     });
                     break;
-                case 'Parameter': {
-                    const paramTypeName = element.parameterType?.$refText;
+
+                case 'Parameter':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: paramTypeName ? `${paramTypeName} in ${parentName ?? ''}` : parentName ? `In ${parentName}` : undefined,
-                        svg: undefined,
-                        bounds: undefined
+                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName)
                     });
                     break;
-                }
-                case 'Enumeration':
-                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
-                    break;
+
                 case 'EnumerationLiteral':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: parentName ? `In Enumeration ${parentName}` : undefined,
-                        svg: undefined,
-                        bounds: undefined
+                        details: parentName ? `In Enumeration ${parentName}` : undefined
                     });
                     break;
-                case 'PrimitiveType':
-                case 'Package':
-                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
-                    break;
-                case 'InstanceSpecification':
-                    results.push({ id, type, name, parentName, svg: undefined, bounds: undefined });
-                    break;
-                case 'Slot': {
-                    const featureName = element.definingFeature?.$refText;
+
+                case 'Slot':
                     results.push({
                         id,
                         type,
-                        name: name ?? 'Unnamed',
+                        name,
                         parentName,
-                        details: featureName ? `Feature: ${featureName}` : undefined,
-                        svg: undefined,
-                        bounds: undefined
+                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined
                     });
-                    break;
-                }
-                case 'LiteralSpecification':
-                    results.push({ id, type, name: name ?? 'Unnamed', parentName, svg: undefined, bounds: undefined });
                     break;
             }
         });
+    }
 
-        // Collect relations
+    private collectRelationResults(diagram: ClassDiagram, results: SearchResult[], idToName: Map<string, string>): void {
         for (const relation of diagram.relations ?? []) {
             const type = relation.$type;
-            if (!type) continue;
+
+            if (!type || !relation.__id) {
+                continue;
+            }
 
             const sourceId = relation.source?.ref?.__id;
             const targetId = relation.target?.ref?.__id;
-            const sourceName = relation.source?.$refText ?? idToName.get(sourceId!) ?? '(unknown)';
-            const targetName = relation.target?.$refText ?? idToName.get(targetId!) ?? '(unknown)';
 
-            let name: string | undefined = undefined;
-            if ('name' in relation) {
-                name = `${relation.name}: ${sourceName} → ${targetName}`;
-            }
+            const sourceName = relation.source?.ref?.name ?? relation.source?.$refText ?? idToName.get(sourceId ?? '') ?? '(unknown)';
 
-            const relationName = name ?? `${sourceName} → ${targetName}`;
+            const targetName = relation.target?.ref?.name ?? relation.target?.$refText ?? idToName.get(targetId ?? '') ?? '(unknown)';
+            const relationName =
+                'name' in relation && relation.name ? `${relation.name}: ${sourceName} → ${targetName}` : `${sourceName} → ${targetName}`;
 
             results.push({
                 id: relation.__id,
                 type,
                 name: relationName,
-                details: `${type} from ${sourceName} to ${targetName}`,
-                svg: undefined,
-                bounds: undefined
+                details: `${type} from ${sourceName} to ${targetName}`
             });
         }
+    }
 
-        return results;
+    private buildTypedDetails(typeName?: string, parentName?: string): string | undefined {
+        if (typeName) {
+            return `${typeName} in ${parentName ?? ''}`;
+        }
+
+        if (parentName) {
+            return `In ${parentName}`;
+        }
+
+        return undefined;
+    }
+
+    private buildDiagramIndex(diagram: ClassDiagram): Map<string, ClassDiagramNodes | ClassDiagramEdges> {
+        const diagramIndex = new Map<string, ClassDiagramNodes | ClassDiagramEdges>();
+
+        SharedElementCollector.collectRecursively(diagram as any, element => {
+            if (element?.__id) {
+                diagramIndex.set(element.__id, element);
+            }
+        });
+
+        for (const relation of diagram.relations ?? []) {
+            if (relation.__id) {
+                diagramIndex.set(relation.__id, relation);
+            }
+        }
+
+        return diagramIndex;
     }
 }
