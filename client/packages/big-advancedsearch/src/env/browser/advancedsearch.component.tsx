@@ -49,10 +49,12 @@ function computeNewValue(
 }
 
 function derivePatternFromQuery(query: string): string {
-    if (query.includes(':')) {
-        return query.split(':', 2)[1]?.trim() ?? '';
-    }
-    return query.trim();
+    // Extract first name filter value, e.g. Class[name~"User"] → "User"
+    const filterMatch = query.match(/\bname[~=]"([^"\\]*)"/);
+    if (filterMatch) return filterMatch[1];
+    const filterMatchUnquoted = query.match(/\bname[~=]([a-zA-Z_]\w*)/);
+    if (filterMatchUnquoted) return filterMatchUnquoted[1];
+    return '';
 }
 
 // Properties whose AST values are drawn from a fixed set. The UI renders these
@@ -453,7 +455,10 @@ export function AdvancedSearch(): ReactElement {
                                 type='button'
                                 className='advanced-search__undo-btn'
                                 title='Undo this replace (Ctrl+Z)'
-                                onClick={() => dispatchNotification(UndoNotification.TYPE)}
+                                onClick={() => {
+                                    dispatchNotification(UndoNotification.TYPE);
+                                    setReplaceStatus(undefined);
+                                }}
                             >
                                 <span className='codicon codicon-discard' />
                                 <span>Undo</span>

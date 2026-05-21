@@ -15,9 +15,9 @@ import {
     TYPES,
     WebviewViewProvider
 } from '@borkdominik-biguml/big-vscode/vscode';
+import { UndoAction } from '@eclipse-glsp/protocol';
 import { DisposableCollection } from '@eclipse-glsp/vscode-integration';
 import { inject, injectable, postConstruct } from 'inversify';
-import * as vscode from 'vscode';
 import { type Disposable } from 'vscode';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { ReplaceActionResponse } from '../common/replace.action.js';
@@ -64,11 +64,12 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
             this.connectionManager.onNoActiveClient(() => this.actionMessenger.dispatch(AdvancedSearchActionResponse.create())),
             this.connectionManager.onNoConnection(() => this.actionMessenger.dispatch(AdvancedSearchActionResponse.create())),
             this.modelState.onDidChangeModelState(() => this.requestModel()),
-            // Webview asked us to run VS Code's undo on its behalf — bounce
-            // through the command palette so VS Code's custom-document undo
-            // stack and our Ctrl+Z behavior stay aligned.
+            // UndoAction is a client-side GLSP action — must be routed to the
+            // active GLSP client (the diagram webview), which then sends an
+            // UndoOperation to the server. Dispatching it via the server-side
+            // actionDispatcher would silently no-op.
             messenger.onNotification(UndoNotification.TYPE, () => {
-                vscode.commands.executeCommand('undo');
+                this.connector.sendActionToActiveClient(UndoAction.create());
             })
         );
         return disposables;

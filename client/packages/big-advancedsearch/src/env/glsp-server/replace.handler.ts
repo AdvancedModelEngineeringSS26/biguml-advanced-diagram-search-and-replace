@@ -9,7 +9,7 @@
 
 import { ModelPatchCommand } from '@borkdominik-biguml/uml-glsp-server/vscode';
 import type { DiagramModelState } from '@borkdominik-biguml/uml-glsp-server/vscode';
-import { ModelState, ModelSubmissionHandler, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
+import { CommandStack, ModelState, ModelSubmissionHandler, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
 
@@ -24,6 +24,9 @@ export class ReplaceActionHandler implements ActionHandler {
 
     @inject(ModelSubmissionHandler)
     protected readonly modelSubmissionHandler: ModelSubmissionHandler;
+
+    @inject(CommandStack)
+    protected readonly commandStack: CommandStack;
 
     execute(action: RequestReplaceAction): MaybePromise<any[]> {
         if (RequestReplaceAction.is(action)) {
@@ -98,7 +101,11 @@ export class ReplaceActionHandler implements ActionHandler {
 
         if (patchOps.length > 0) {
             const cmd = new ModelPatchCommand(this.modelState, JSON.stringify(patchOps));
-            await cmd.execute();
+            // Execute via the command stack so the patch is recorded for undo/redo.
+            // Bypassing the stack (e.g. calling cmd.execute() directly) leaves the
+            // model server's history populated but the GLSP undo handler has nothing
+            // to pop, so the user-facing Undo button effectively no-ops.
+            await this.commandStack.execute(cmd);
             const submissionActions = await this.modelSubmissionHandler.submitModel();
             return [...submissionActions, ReplaceActionResponse.create({ ok: true, results })];
         }
