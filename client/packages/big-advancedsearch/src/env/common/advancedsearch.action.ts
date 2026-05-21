@@ -41,8 +41,6 @@ export interface AdvancedSearchActionResponse extends ResponseAction {
     kind: typeof AdvancedSearchActionResponse.KIND;
     results: SearchResult[];
     fullDiagramSvg?: string;
-    /** true = SVG prefetch started; false = prefetch done (no pending search); undefined = normal results update */
-    svgLoading?: boolean;
 }
 
 export namespace AdvancedSearchActionResponse {
@@ -59,8 +57,46 @@ export namespace AdvancedSearchActionResponse {
             kind: KIND,
             responseId: options?.responseId ?? '',
             results: options?.results ?? [],
-            fullDiagramSvg: options?.fullDiagramSvg,
-            svgLoading: options?.svgLoading
+            fullDiagramSvg: options?.fullDiagramSvg
         };
+    }
+}
+
+/**
+ * Sent from the extension to the GLSP client (diagram webview) to request the live SVG.
+ */
+export interface RequestRawDiagramSvgAction extends RequestAction<RawDiagramSvgAction> {
+    kind: typeof RequestRawDiagramSvgAction.KIND;
+}
+
+export namespace RequestRawDiagramSvgAction {
+    export const KIND = 'requestRawDiagramSvg';
+
+    export function is(object: unknown): object is RequestRawDiagramSvgAction {
+        return RequestAction.hasKind(object, KIND);
+    }
+
+    export function create(): RequestRawDiagramSvgAction {
+        return { kind: KIND, requestId: '' };
+    }
+}
+
+/**
+ * Sent from the GLSP client (diagram webview) back to the extension with the serialized live SVG.
+ */
+export interface RawDiagramSvgAction extends ResponseAction {
+    kind: typeof RawDiagramSvgAction.KIND;
+    svg?: string;
+}
+
+export namespace RawDiagramSvgAction {
+    export const KIND = 'rawDiagramSvg';
+
+    export function is(object: unknown): object is RawDiagramSvgAction {
+        return Action.hasKind(object, KIND);
+    }
+
+    export function create(options?: { svg?: string; responseId?: string }): RawDiagramSvgAction {
+        return { kind: KIND, responseId: options?.responseId ?? '', svg: options?.svg };
     }
 }

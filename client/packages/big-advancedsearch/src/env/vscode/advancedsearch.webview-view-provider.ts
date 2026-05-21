@@ -6,7 +6,6 @@
  *
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
-import { MinimapExportSvgAction, RequestMinimapExportSvgAction } from '@borkdominik-biguml/big-minimap';
 import type { WebviewMessenger, WebviewViewProviderOptions } from '@borkdominik-biguml/big-vscode/vscode';
 import {
     type ActionDispatcher,
@@ -19,7 +18,7 @@ import {
 import { DisposableCollection } from '@eclipse-glsp/vscode-integration';
 import { inject, injectable, postConstruct } from 'inversify';
 import type { Disposable } from 'vscode';
-import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
+import { AdvancedSearchActionResponse, RawDiagramSvgAction, RequestAdvancedSearchAction, RequestRawDiagramSvgAction } from '../common/advancedsearch.action.js';
 import type { SearchResult } from '../common/searchresult.js';
 
 @injectable()
@@ -58,8 +57,8 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
 
         this.toDispose.push(
             this.connector.onClientActionMessage(message => {
-                if (MinimapExportSvgAction.is(message.action)) {
-                    const { svg } = message.action as MinimapExportSvgAction;
+                if (RawDiagramSvgAction.is(message.action)) {
+                    const { svg } = message.action as RawDiagramSvgAction;
                     this.currentDiagramSvg = svg;
                     this.svgExportInFlight = false;
 
@@ -71,9 +70,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                             })
                         );
                         this.pendingSearchResults = undefined;
-                    } else {
-                        // Prefetch complete with no pending search — tell browser to clear the loading indicator
-                        this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: false }));
                     }
                 }
             })
@@ -152,8 +148,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected prefetchSvg(): void {
         if (!this.currentDiagramSvg && !this.svgExportInFlight && this.connectionManager.hasActiveClient()) {
             this.svgExportInFlight = true;
-            this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
-            this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: true }));
+            this.connector.sendActionToActiveClient(RequestRawDiagramSvgAction.create());
         }
     }
 }
