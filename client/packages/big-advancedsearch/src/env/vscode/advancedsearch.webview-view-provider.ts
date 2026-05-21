@@ -56,7 +56,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
         this.actionCache = this.actionListener.createCache([AdvancedSearchActionResponse.KIND]);
         this.toDispose.push(this.actionCache);
 
-        // Listen for SVG export responses from the GLSP client (diagram webview)
         this.toDispose.push(
             this.connector.onClientActionMessage(message => {
                 if (MinimapExportSvgAction.is(message.action)) {
@@ -64,7 +63,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                     this.currentDiagramSvg = svg;
                     this.svgExportInFlight = false;
 
-                    // If search results were waiting for the SVG, dispatch them now
                     if (this.pendingSearchResults) {
                         this.actionMessenger.dispatch(
                             AdvancedSearchActionResponse.create({
@@ -73,6 +71,9 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                             })
                         );
                         this.pendingSearchResults = undefined;
+                    } else {
+                        // Prefetch complete with no pending search — tell browser to clear the loading indicator
+                        this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: false }));
                     }
                 }
             })
@@ -88,7 +89,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                     const results = message.action.results;
 
                     if (this.currentDiagramSvg) {
-                        // Reuse cached SVG — no round-trip needed
                         this.actionMessenger.dispatch(
                             AdvancedSearchActionResponse.create({
                                 results,
@@ -96,7 +96,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                             })
                         );
                     } else {
-                        // Forward results immediately; SVG export is already in flight or will start now
                         this.actionMessenger.dispatch(message);
                         this.pendingSearchResults = results.map(r => ({ ...r }));
                         this.prefetchSvg();
@@ -108,33 +107,43 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
             this.connectionManager.onDidActiveClientChange(() => {
                 this.currentDiagramSvg = undefined;
                 this.svgExportInFlight = false;
-                this.requestModel();
+                this.pendingSearchResults = undefined;
+                this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
                 this.prefetchSvg();
+                this.requestModel();
             }),
             this.connectionManager.onNoActiveClient(() => {
                 this.currentDiagramSvg = undefined;
                 this.svgExportInFlight = false;
+                this.pendingSearchResults = undefined;
                 this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
             }),
             this.connectionManager.onNoConnection(() => {
                 this.currentDiagramSvg = undefined;
                 this.svgExportInFlight = false;
+                this.pendingSearchResults = undefined;
                 this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
             }),
             this.modelState.onDidChangeModelState(() => {
                 this.currentDiagramSvg = undefined;
                 this.svgExportInFlight = false;
-                this.requestModel();
+                this.pendingSearchResults = undefined;
+                this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
                 this.prefetchSvg();
+                this.requestModel();
             })
         );
         return disposables;
     }
 
     protected override handleOnReady(): void {
+        this.prefetchSvg();
         this.requestModel();
         this.actionMessenger.dispatch(this.actionCache.getActions());
-        this.prefetchSvg();
+    }
+
+    protected requestModel(): void {
+        this.actionDispatcher.dispatch(RequestAdvancedSearchAction.create({ query: '' }));
     }
 
     protected override handleOnVisible(): void {
@@ -142,17 +151,10 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     }
 
     protected prefetchSvg(): void {
-        if (!this.currentDiagramSvg && !this.svgExportInFlight) {
+        if (!this.currentDiagramSvg && !this.svgExportInFlight && this.connectionManager.hasActiveClient()) {
             this.svgExportInFlight = true;
             this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
+            this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: true }));
         }
-    }
-
-    protected requestModel(): void {
-        this.actionDispatcher.dispatch(
-            RequestAdvancedSearchAction.create({
-                query: ''
-            })
-        );
     }
 }

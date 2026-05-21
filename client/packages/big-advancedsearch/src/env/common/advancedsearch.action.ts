@@ -41,6 +41,8 @@ export interface AdvancedSearchActionResponse extends ResponseAction {
     kind: typeof AdvancedSearchActionResponse.KIND;
     results: SearchResult[];
     fullDiagramSvg?: string;
+    /** true = SVG prefetch started; false = prefetch done (no pending search); undefined = normal results update */
+    svgLoading?: boolean;
 }
 
 export namespace AdvancedSearchActionResponse {
@@ -51,13 +53,14 @@ export namespace AdvancedSearchActionResponse {
     }
 
     export function create(
-        options?: Omit<AdvancedSearchActionResponse, 'kind' | 'responseId'> & { responseId?: string }
+        options?: Partial<Omit<AdvancedSearchActionResponse, 'kind' | 'responseId'>> & { responseId?: string }
     ): AdvancedSearchActionResponse {
         return {
             kind: KIND,
             responseId: options?.responseId ?? '',
             results: options?.results ?? [],
-            fullDiagramSvg: options?.fullDiagramSvg
+            fullDiagramSvg: options?.fullDiagramSvg,
+            svgLoading: options?.svgLoading
         };
     }
 }

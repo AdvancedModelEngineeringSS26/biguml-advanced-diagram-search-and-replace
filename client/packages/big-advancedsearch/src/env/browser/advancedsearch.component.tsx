@@ -100,6 +100,7 @@ export function AdvancedSearch(): ReactElement {
     const [results, setResults] = useState<SearchResult[]>([]);
     const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
     const [svgLoading, setSvgLoading] = useState(false);
+    const [svgPrefetching, setSvgPrefetching] = useState(false);
 
     const fireSearch = (value: string) => {
         setQuery(value);
@@ -129,12 +130,26 @@ export function AdvancedSearch(): ReactElement {
     useEffect(() => {
         const handler = (action: unknown) => {
             if (AdvancedSearchActionResponse.is(action)) {
-                setResults(action.results);
-                if (action.fullDiagramSvg) {
-                    setFullDiagramSvg(action.fullDiagramSvg);
+                if (action.svgLoading === true) {
+                    // SVG prefetch started — show loading indicator, keep existing results
+                    setSvgPrefetching(true);
+                } else if (action.svgLoading === false) {
+                    // SVG prefetch done, no pending search — just clear loading indicators
+                    setSvgPrefetching(false);
                     setSvgLoading(false);
-                } else if (action.results.length > 0) {
-                    setSvgLoading(true);
+                } else {
+                    // Normal results update
+                    setSvgPrefetching(false);
+                    setResults(action.results);
+                    if (action.fullDiagramSvg) {
+                        setFullDiagramSvg(action.fullDiagramSvg);
+                        setSvgLoading(false);
+                    } else if (action.results.length > 0) {
+                        setSvgLoading(true);
+                    } else {
+                        setFullDiagramSvg(undefined);
+                        setSvgLoading(false);
+                    }
                 }
             }
             if (HighlightElementActionResponse.is(action)) {
@@ -159,6 +174,8 @@ export function AdvancedSearch(): ReactElement {
                 </BTextfield>
             </div>
 
+            {(svgPrefetching || svgLoading) && <div className='advanced-search__svg-loading-bar' />}
+
             <div>
                 {results.length > 0 ? (
                     <ul className='advanced-search__results'>
@@ -180,7 +197,7 @@ export function AdvancedSearch(): ReactElement {
                             );
                         })}
                     </ul>
-                ) : (
+                ) : svgPrefetching ? null : (
                     <p>No results found.</p>
                 )}
             </div>

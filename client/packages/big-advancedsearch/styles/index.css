@@ -100,6 +100,34 @@
     display: block;
 }
 
+.advanced-search__idle {
+    color: var(--vscode-descriptionForeground, #999);
+    font-size: 0.85rem;
+    padding: 0.5rem 0.25rem;
+    margin: 0;
+}
+
+/* Panel-level SVG loading indicator — shown during prefetch and thumbnail loading */
+.advanced-search__svg-loading-bar {
+    height: 2px;
+    width: 100%;
+    overflow: hidden;
+    background: var(--vscode-editorWidget-background, #252526);
+    margin: 0.4rem 0;
+}
+.advanced-search__svg-loading-bar::after {
+    content: '';
+    display: block;
+    height: 100%;
+    width: 40%;
+    background: var(--vscode-progressBar-background, #0e70c0);
+    animation: svg-loading-progress 1.4s ease-in-out infinite;
+}
+@keyframes svg-loading-progress {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(350%); }
+}
+
 /* Loading shimmer animation */
 .result-item__thumbnail-container--loading {
     height: 60px;
