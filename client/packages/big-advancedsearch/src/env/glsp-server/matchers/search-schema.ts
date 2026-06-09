@@ -100,6 +100,12 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         defaultOperator: 'equals'
     },
     {
+        key: 'propertyType',
+        scopes: ['Attribute'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
         key: 'isQuery',
         scopes: ['Method'],
         valueType: 'boolean',
