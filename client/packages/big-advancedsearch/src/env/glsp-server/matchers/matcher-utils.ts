@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import type { ClassDiagramNodes, ClassDiagramEdges } from '@borkdominik-biguml/uml-model-server/grammar';
+import type { ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
 import type { SearchCriteria, SearchFilter } from './search-ast.js';
 
 export function matchesCriteriaOnElement(
@@ -91,12 +91,7 @@ function matchesFilter(element: any, filter: SearchFilter, index: Map<string, Cl
         return matchesCriteriaOnElement(refNode, nestedCriteria, index);
     }
 
-    let actual = element[filter.key];
-
-    if (filter.key === 'type' && actual === undefined) {
-        actual = element.propertyType?.$refText;
-    }
-
+    const actual = getFilterValue(element, filter);
     const expected = filter.value.value;
 
     switch (filter.operator) {
@@ -121,6 +116,16 @@ function matchesFilter(element: any, filter: SearchFilter, index: Map<string, Cl
         default:
             return false;
     }
+}
+
+const filterValueExtractors: Record<string, (element: any) => unknown> = {
+    aggregationType: element => element.aggregation,
+    type: element => element.propertyType?.$refText
+};
+
+function getFilterValue(element: any, filter: SearchFilter): unknown {
+    const extractor = filterValueExtractors[filter.key];
+    return extractor ? extractor(element) : element[filter.key];
 }
 
 function normalize(value: unknown): string {
