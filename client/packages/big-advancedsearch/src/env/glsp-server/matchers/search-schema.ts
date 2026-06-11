@@ -42,7 +42,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package', 'InstanceSpecification', 'Relationship'],
+        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package', 'InstanceSpecification', 'Relationship', 'Parameter'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
@@ -84,7 +84,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     },
     {
         key: 'isOrdered',
-        scopes: ['Attribute'],
+        scopes: ['Attribute', 'Parameter'],
         valueType: 'boolean',
         defaultOperator: 'equals'
     },
