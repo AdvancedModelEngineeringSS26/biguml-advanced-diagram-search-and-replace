@@ -34,7 +34,8 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
             'PrimitiveType',
             'Package',
             'InstanceSpecification',
-            'Slot'
+            'Slot',
+            'Parameter',
         ],
         valueType: 'string',
         defaultOperator: 'equals'
