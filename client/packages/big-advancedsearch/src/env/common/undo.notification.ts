@@ -10,11 +10,11 @@
 import type { NotificationType } from 'vscode-messenger-common';
 
 /**
- * Sent from the webview to ask VS Code to run its built-in `undo` command on
- * the currently active editor — typically the GLSP diagram that was last
- * focused. We bounce through VS Code's command rather than dispatching a GLSP
- * `UndoAction` directly so the undo goes through the same path as Ctrl+Z and
- * stays in sync with VS Code's custom-document undo stack.
+ * Sent from the webview to ask the extension host to undo the last change in
+ * the active diagram. The host routes a GLSP `UndoAction` to the active GLSP
+ * client (the diagram webview), which sends an `UndoOperation` to the server —
+ * the search panel can't dispatch it itself because its clientId isn't in the
+ * connector's diagram-client map.
  */
 export namespace UndoNotification {
     export const TYPE: NotificationType<void> = { method: 'big.advancedsearch.undo' };

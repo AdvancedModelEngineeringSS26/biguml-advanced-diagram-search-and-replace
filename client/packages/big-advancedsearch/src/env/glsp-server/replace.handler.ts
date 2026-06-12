@@ -98,7 +98,11 @@ export class ReplaceActionHandler implements ActionHandler {
                 const message = e instanceof Error ? e.message : String(e);
                 return [ReplaceActionResponse.create({ ok: false, error: `Replace failed: ${message}` })];
             }
-            const submissionActions = await this.modelSubmissionHandler.submitModel();
+            // Submit with reason 'operation': the VS Code connector only fires
+            // onDidChangeCustomDocument (which feeds VS Code's undo stack and the
+            // dirty indicator) for that reason. Without it, replaces are invisible
+            // to Ctrl+Z and the document never shows as modified.
+            const submissionActions = await this.modelSubmissionHandler.submitModel('operation');
             return [...submissionActions, ReplaceActionResponse.create({ ok: true, results })];
         }
 
