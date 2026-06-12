@@ -29,23 +29,12 @@ function escapeRegex(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
-function computeNewValue(
-    oldValue: string | undefined,
-    find: string,
-    replaceWith: string,
-    isRegex: boolean,
-    caseSensitive: boolean
-): string | undefined {
+function computeNewValue(oldValue: string | undefined, find: string, replaceWith: string, caseSensitive: boolean): string | undefined {
     if (typeof oldValue !== 'string' || find === '') {
         return oldValue;
     }
-    try {
-        const pattern = isRegex ? find : escapeRegex(find);
-        const flags = caseSensitive ? 'g' : 'gi';
-        return oldValue.replace(new RegExp(pattern, flags), replaceWith);
-    } catch {
-        return oldValue;
-    }
+    const flags = caseSensitive ? 'g' : 'gi';
+    return oldValue.replace(new RegExp(escapeRegex(find), flags), replaceWith);
 }
 
 function derivePatternFromQuery(query: string): string {
@@ -97,7 +86,6 @@ export function AdvancedSearch(): ReactElement {
     const [findOverride, setFindOverride] = useState('');
     const [replaceWith, setReplaceWith] = useState('');
     const [caseSensitive, setCaseSensitive] = useState(false);
-    const [isRegex, setIsRegex] = useState(false);
     const [excludedIds, setExcludedIds] = useState<Set<string>>(new Set());
     const [outcomes, setOutcomes] = useState<Map<string, ReplaceResult>>(new Map());
     const [replaceStatus, setReplaceStatus] = useState<ReplaceStatus | undefined>(undefined);
@@ -185,7 +173,6 @@ export function AdvancedSearch(): ReactElement {
                 searchPattern: findPattern,
                 replaceWith,
                 property: selectedProperty,
-                isRegex,
                 caseSensitive
             })
         );
@@ -212,13 +199,13 @@ export function AdvancedSearch(): ReactElement {
         if (!replaceOpen) return map;
         for (const r of results) {
             const current = getCurrentValue(r, selectedProperty);
-            const computed = computeNewValue(current, findPattern, replaceWith, isRegex, caseSensitive);
+            const computed = computeNewValue(current, findPattern, replaceWith, caseSensitive);
             const newValue = typeof computed === 'string' ? computed : (current ?? '');
             const changes = typeof current === 'string' && newValue !== current;
             map.set(r.id, { current, newValue, changes });
         }
         return map;
-    }, [results, findPattern, replaceWith, isRegex, caseSensitive, replaceOpen, selectedProperty]);
+    }, [results, findPattern, replaceWith, caseSensitive, replaceOpen, selectedProperty]);
 
     const includedIds = useMemo(() => results.filter(r => !excludedIds.has(r.id)).map(r => r.id), [results, excludedIds]);
 
@@ -381,16 +368,6 @@ export function AdvancedSearch(): ReactElement {
                                 onClick={() => setCaseSensitive(v => !v)}
                             >
                                 <span className='codicon codicon-case-sensitive' />
-                            </button>
-                            <button
-                                type='button'
-                                className={`advanced-search__option ${isRegex ? 'advanced-search__option--active' : ''}`}
-                                title={`Use regular expression (${isRegex ? 'on' : 'off'})`}
-                                aria-pressed={isRegex}
-                                aria-label='Use regular expression'
-                                onClick={() => setIsRegex(v => !v)}
-                            >
-                                <span className='codicon codicon-regex' />
                             </button>
                             {isEnumProperty(selectedProperty) ? (
                                 <BSingleSelect

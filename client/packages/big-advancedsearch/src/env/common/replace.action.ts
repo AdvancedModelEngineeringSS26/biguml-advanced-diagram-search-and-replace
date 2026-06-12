@@ -27,18 +27,15 @@ export interface RequestReplaceAction extends RequestAction<ReplaceActionRespons
     kind: typeof RequestReplaceAction.KIND;
     /** Semantic element IDs to update. */
     elementIds: string[];
-    /** Substring to find (empty string = replace whole value). */
+    /** Substring to find. Must not be empty — the backend rejects empty patterns. */
     searchPattern: string;
     /** Replacement text. */
     replaceWith: string;
     /** Property to update. Defaults to 'name'. */
     property?: string;
-    /** Whether searchPattern should be treated as a regular expression. */
-    isRegex?: boolean;
     /**
-     * Whether matching should be case-sensitive. When omitted, the backend uses
-     * the mode default (literal = case-insensitive, regex = case-sensitive) to
-     * preserve historical behavior.
+     * Whether matching should be case-sensitive. When omitted, the backend
+     * falls back to case-insensitive to preserve historical behavior.
      */
     caseSensitive?: boolean;
 }
@@ -55,7 +52,6 @@ export namespace RequestReplaceAction {
         searchPattern: string;
         replaceWith: string;
         property?: string;
-        isRegex?: boolean;
         caseSensitive?: boolean;
         requestId?: string;
     }): RequestReplaceAction {
@@ -66,7 +62,6 @@ export namespace RequestReplaceAction {
             searchPattern: options.searchPattern,
             replaceWith: options.replaceWith,
             property: options.property,
-            isRegex: options.isRegex,
             caseSensitive: options.caseSensitive
         };
     }

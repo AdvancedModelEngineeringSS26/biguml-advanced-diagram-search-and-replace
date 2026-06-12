@@ -46,14 +46,6 @@ export class ReplaceActionHandler implements ActionHandler {
             return [ReplaceActionResponse.create({ ok: false, error: 'Find pattern must not be empty.' })];
         }
 
-        if (action.isRegex) {
-            try {
-                new RegExp(action.searchPattern);
-            } catch (e) {
-                return [ReplaceActionResponse.create({ ok: false, error: `Invalid regex: "${action.searchPattern}"` })];
-            }
-        }
-
         const patchOps: { op: 'replace'; path: string; value: string }[] = [];
         const results: ReplaceResult[] = [];
 
@@ -83,13 +75,7 @@ export class ReplaceActionHandler implements ActionHandler {
                 continue;
             }
 
-            const newValue = this.applyReplacement(
-                oldValue,
-                action.searchPattern,
-                action.replaceWith,
-                action.isRegex ?? false,
-                action.caseSensitive
-            );
+            const newValue = this.applyReplacement(oldValue, action.searchPattern, action.replaceWith, action.caseSensitive);
             if (newValue === oldValue) {
                 results.push({ id, property, oldValue, newValue, success: true, changed: false });
                 continue;
@@ -113,24 +99,13 @@ export class ReplaceActionHandler implements ActionHandler {
         return [ReplaceActionResponse.create({ ok: true, results })];
     }
 
-    protected applyReplacement(
-        value: string,
-        searchPattern: string,
-        replaceWith: string,
-        isRegex: boolean,
-        caseSensitive?: boolean
-    ): string {
+    protected applyReplacement(value: string, searchPattern: string, replaceWith: string, caseSensitive?: boolean): string {
         if (searchPattern === '') {
             return value;
         }
-        // When caseSensitive is explicit, honor it. When undefined, fall back to the
-        // mode default (literal = case-insensitive, regex = case-sensitive) so older
-        // callers that don't pass the flag keep their historical behavior.
-        const ci = caseSensitive === undefined ? !isRegex : !caseSensitive;
-        const flags = ci ? 'gi' : 'g';
-        if (isRegex) {
-            return value.replace(new RegExp(searchPattern, flags), replaceWith);
-        }
+        // Case-insensitive unless explicitly requested otherwise, preserving the
+        // historical default for callers that don't pass the flag.
+        const flags = caseSensitive ? 'g' : 'gi';
         const escaped = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         return value.replace(new RegExp(escaped, flags), replaceWith);
     }
