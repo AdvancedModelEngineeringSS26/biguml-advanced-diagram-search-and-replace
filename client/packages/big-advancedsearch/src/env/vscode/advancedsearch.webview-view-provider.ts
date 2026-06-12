@@ -37,6 +37,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected currentDiagramSvg: string | undefined;
     protected pendingSearchResults: SearchResult[] | undefined;
     protected svgExportInFlight = false;
+    protected lastSearchQuery = '';
 
     constructor(@inject(TYPES.WebviewViewOptions) options: WebviewViewProviderOptions) {
         super({
@@ -84,6 +85,13 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
         const disposables = new DisposableCollection();
         disposables.push(
             super.resolveWebviewProtocol(messenger),
+
+            this.actionMessenger.onActionMessage(message => {
+                if (RequestAdvancedSearchAction.is(message.action)) {
+                    this.lastSearchQuery = message.action.query;
+                }
+            }),
+
             this.actionCache.onDidChange(message => {
                 if (AdvancedSearchActionResponse.is(message.action) && message.action.results.length > 0) {
                     const results = message.action.results;
@@ -128,7 +136,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                 this.currentDiagramSvg = undefined;
                 this.svgExportInFlight = false;
                 this.pendingSearchResults = undefined;
-                this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
                 this.prefetchSvg();
                 this.requestModel();
             })
@@ -143,7 +150,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     }
 
     protected requestModel(): void {
-        this.actionDispatcher.dispatch(RequestAdvancedSearchAction.create({ query: '' }));
+        this.actionDispatcher.dispatch(RequestAdvancedSearchAction.create({ query: this.lastSearchQuery }));
     }
 
     protected override handleOnVisible(): void {
