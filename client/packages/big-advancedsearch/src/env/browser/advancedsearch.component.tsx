@@ -12,6 +12,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, type Rea
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
+import { applyReplacement } from '../common/replace-semantics.js';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
 import { UndoNotification } from '../common/undo.notification.js';
 
@@ -25,16 +26,11 @@ interface ReplaceStatus {
     canUndo?: boolean;
 }
 
-function escapeRegex(value: string): string {
-    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function computeNewValue(oldValue: string | undefined, find: string, replaceWith: string, caseSensitive: boolean): string | undefined {
     if (typeof oldValue !== 'string' || find === '') {
         return oldValue;
     }
-    const flags = caseSensitive ? 'g' : 'gi';
-    return oldValue.replace(new RegExp(escapeRegex(find), flags), replaceWith);
+    return applyReplacement(oldValue, find, replaceWith, caseSensitive);
 }
 
 function derivePatternFromQuery(query: string): string {

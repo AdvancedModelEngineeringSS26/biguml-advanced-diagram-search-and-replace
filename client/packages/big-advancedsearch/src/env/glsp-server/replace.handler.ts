@@ -11,6 +11,7 @@ import { ModelPatchCommand } from '@borkdominik-biguml/uml-glsp-server/vscode';
 import type { DiagramModelState } from '@borkdominik-biguml/uml-glsp-server/vscode';
 import { CommandStack, ModelState, ModelSubmissionHandler, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
+import { applyReplacement } from '../common/replace-semantics.js';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
 
 const SAFE_PROPERTY_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
@@ -75,7 +76,7 @@ export class ReplaceActionHandler implements ActionHandler {
                 continue;
             }
 
-            const newValue = this.applyReplacement(oldValue, action.searchPattern, action.replaceWith, action.caseSensitive);
+            const newValue = applyReplacement(oldValue, action.searchPattern, action.replaceWith, action.caseSensitive);
             if (newValue === oldValue) {
                 results.push({ id, property, oldValue, newValue, success: true, changed: false });
                 continue;
@@ -97,16 +98,5 @@ export class ReplaceActionHandler implements ActionHandler {
         }
 
         return [ReplaceActionResponse.create({ ok: true, results })];
-    }
-
-    protected applyReplacement(value: string, searchPattern: string, replaceWith: string, caseSensitive?: boolean): string {
-        if (searchPattern === '') {
-            return value;
-        }
-        // Case-insensitive unless explicitly requested otherwise, preserving the
-        // historical default for callers that don't pass the flag.
-        const flags = caseSensitive ? 'g' : 'gi';
-        const escaped = searchPattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-        return value.replace(new RegExp(escaped, flags), replaceWith);
     }
 }
