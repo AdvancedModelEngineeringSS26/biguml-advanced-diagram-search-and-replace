@@ -33,15 +33,6 @@ function computeNewValue(oldValue: string | undefined, find: string, replaceWith
     return applyReplacement(oldValue, find, replaceWith, caseSensitive);
 }
 
-function derivePatternFromQuery(query: string): string {
-    // Extract first name filter value, e.g. Class[name~"User"] → "User"
-    const filterMatch = query.match(/\bname[~=]"([^"\\]*)"/);
-    if (filterMatch) return filterMatch[1];
-    const filterMatchUnquoted = query.match(/\bname[~=]([a-zA-Z_]\w*)/);
-    if (filterMatchUnquoted) return filterMatchUnquoted[1];
-    return '';
-}
-
 // Properties whose AST values are drawn from a fixed set. The UI renders these
 // as dropdowns instead of free-text inputs. Values are uppercased to match the
 // langium AST literals (see `Visibility` in uml-model-server/.../ast.ts).
@@ -75,6 +66,9 @@ export function AdvancedSearch(): ReactElement {
     const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [searchError, setSearchError] = useState<string | undefined>(undefined);
+    // Value of the query's name filter, parsed server-side (single source of
+    // truth: the same parser that produced the results).
+    const [serverFindPattern, setServerFindPattern] = useState('');
     const [replaceOpen, setReplaceOpen] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState('name');
     // Used as the find pattern when `selectedProperty !== 'name'`. For the name
@@ -102,12 +96,12 @@ export function AdvancedSearch(): ReactElement {
     };
 
     // Find pattern source depends on the selected property: for `name` it's
-    // derived from the search query (single source of truth), for any other
-    // property the user supplies a value via `findOverride`.
+    // the query's name filter as parsed by the server, for any other property
+    // the user supplies a value via `findOverride`.
     const findPattern = useMemo(() => {
-        if (selectedProperty === 'name') return derivePatternFromQuery(query);
+        if (selectedProperty === 'name') return serverFindPattern;
         return findOverride.trim();
-    }, [query, selectedProperty, findOverride]);
+    }, [serverFindPattern, selectedProperty, findOverride]);
 
     // Properties offered in the property selector. Always includes `name` and
     // the currently selected property (so the dropdown stays valid even when no
@@ -219,6 +213,7 @@ export function AdvancedSearch(): ReactElement {
             if (AdvancedSearchActionResponse.is(action)) {
                 setResults(action.results);
                 setSearchError(action.error);
+                setServerFindPattern(action.findPattern ?? '');
                 const ids = action.results.map(r => r.id).filter(Boolean);
                 applyDiagramHighlighting(ids);
                 // New search results invalidate prior per-row outcomes.
@@ -307,7 +302,7 @@ export function AdvancedSearch(): ReactElement {
                     <BTextfield
                         className='advanced-search__text'
                         value={query}
-                        placeholder='e.g. Class:User*'
+                        placeholder='e.g. Class[name~"User"]'
                         onInput={e => fireSearch((e.target as HTMLInputElement).value)}
                     >
                         <span slot='end' className='codicon codicon-search' />
@@ -397,7 +392,7 @@ export function AdvancedSearch(): ReactElement {
                                 title={
                                     findPattern === ''
                                         ? selectedProperty === 'name'
-                                            ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                            ? 'Add a name filter (e.g. Class[name~"User"]) to enable replace'
                                             : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find`
                                         : willChangeCount === 0
                                           ? 'No included row would change'
@@ -411,7 +406,7 @@ export function AdvancedSearch(): ReactElement {
                             <p className='advanced-search__replace-hint'>
                                 {findPattern === ''
                                     ? selectedProperty === 'name'
-                                        ? 'Add text after the type (e.g. Class:User) to preview changes.'
+                                        ? 'Add a name filter (e.g. Class[name~"User"]) to preview changes.'
                                         : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find.`
                                     : `Replacing matches of "${findPattern}" in ${propertyLabel(selectedProperty).toLowerCase()} — will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
                             </p>
@@ -529,7 +524,7 @@ export function AdvancedSearch(): ReactElement {
                                                 title={
                                                     findPattern === ''
                                                         ? selectedProperty === 'name'
-                                                            ? 'Add text after the type (e.g. Class:User) to enable replace'
+                                                            ? 'Add a name filter (e.g. Class[name~"User"]) to enable replace'
                                                             : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find`
                                                         : willChange
                                                           ? `Replace this element: ${preview?.current ?? item.name} → ${preview?.newValue}`

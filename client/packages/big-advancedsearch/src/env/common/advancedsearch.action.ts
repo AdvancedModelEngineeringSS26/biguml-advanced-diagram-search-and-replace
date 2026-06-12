@@ -47,6 +47,13 @@ export interface AdvancedSearchActionResponse extends ResponseAction {
     }[];
     /** Set when the query could not be parsed; results is empty in that case. */
     error?: string;
+    /**
+     * Value of the query's `name` filter (e.g. `Class[name~"User"]` → "User"),
+     * derived server-side from the parsed query so the replace UI's find
+     * pattern can never drift from the actual query semantics. Undefined when
+     * the query has no name filter (or is empty / invalid).
+     */
+    findPattern?: string;
 }
 
 export namespace AdvancedSearchActionResponse {
@@ -63,7 +70,8 @@ export namespace AdvancedSearchActionResponse {
             kind: KIND,
             responseId: options?.responseId ?? '',
             results: options?.results ?? [],
-            error: options?.error
+            error: options?.error,
+            findPattern: options?.findPattern
         };
     }
 }

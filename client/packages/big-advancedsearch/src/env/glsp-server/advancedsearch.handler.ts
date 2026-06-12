@@ -16,6 +16,7 @@ import { HighlightElementActionResponse, RequestHighlightElementAction } from '.
 import type { SearchResult } from '../common/searchresult.js';
 import type { IMatcher } from './matchers/IMatcher.js';
 import { ClassDiagramMatcher } from './matchers/classmatcher.js';
+import { extractNameFindPattern } from './matchers/find-pattern.js';
 import { buildAst } from './matchers/visitor.js';
 
 @injectable()
@@ -65,7 +66,12 @@ export class AdvancedSearchActionHandler implements ActionHandler {
                 }
             }
 
-            return [AdvancedSearchActionResponse.create({ results: this.sortResults(results) })];
+            return [
+                AdvancedSearchActionResponse.create({
+                    results: this.sortResults(results),
+                    findPattern: extractNameFindPattern(criteria)
+                })
+            ];
         } catch (error) {
             console.error('Could not parse query', error);
             const message = error instanceof Error ? error.message : String(error);
