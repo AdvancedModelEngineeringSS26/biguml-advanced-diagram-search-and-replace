@@ -134,7 +134,6 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                 this.currentDiagramSvg = undefined;
                 this.svgExportInFlight = false;
                 this.pendingSearchResults = undefined;
-                this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
                 this.prefetchSvg();
                 this.requestModel();
             })
