@@ -23,7 +23,10 @@ export function applyReplacement(value: string, searchPattern: string, replaceWi
         return value;
     }
     const flags = caseSensitive ? 'g' : 'gi';
-    return value.replace(new RegExp(escapeRegexPattern(searchPattern), flags), replaceWith);
+    // `$` is a substitution metacharacter in String.replace ($&, $1, $' …).
+    // The replacement is user-supplied literal text, so escape it.
+    const literalReplacement = replaceWith.replace(/\$/g, '$$$$');
+    return value.replace(new RegExp(escapeRegexPattern(searchPattern), flags), literalReplacement);
 }
 
 /** Escapes a string so it matches itself literally inside a RegExp. */
