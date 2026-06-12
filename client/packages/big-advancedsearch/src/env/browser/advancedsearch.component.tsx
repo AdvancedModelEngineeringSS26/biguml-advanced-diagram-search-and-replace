@@ -216,12 +216,22 @@ export function AdvancedSearch(): ReactElement {
                 setServerFindPattern(action.findPattern ?? '');
                 const ids = action.results.map(r => r.id).filter(Boolean);
                 applyDiagramHighlighting(ids);
-                // New search results invalidate prior per-row outcomes.
-                setOutcomes(new Map());
+                const idSet = new Set(action.results.map(r => r.id));
+                // Keep outcomes for rows that survived the refresh (the panel
+                // re-searches right after a replace — wiping the map here made
+                // the outcome icons flash and disappear). User-initiated query
+                // changes still clear outcomes in fireSearch.
+                setOutcomes(prev => {
+                    if (prev.size === 0) return prev;
+                    const next = new Map<string, ReplaceResult>();
+                    for (const [id, outcome] of prev) {
+                        if (idSet.has(id)) next.set(id, outcome);
+                    }
+                    return next.size === prev.size ? prev : next;
+                });
                 // Drop excluded IDs that no longer exist in the new result set.
                 setExcludedIds(prev => {
                     if (prev.size === 0) return prev;
-                    const idSet = new Set(action.results.map(r => r.id));
                     let mutated = false;
                     const next = new Set<string>();
                     for (const id of prev) {
@@ -244,11 +254,15 @@ export function AdvancedSearch(): ReactElement {
                     const list = action.results ?? [];
                     const changedRows = list.filter(r => r.changed);
                     const erroredRows = list.filter(r => !r.success);
-                    const nextOutcomes = new Map<string, ReplaceResult>();
-                    for (const r of list) {
-                        nextOutcomes.set(r.id, r);
-                    }
-                    setOutcomes(nextOutcomes);
+                    // Merge so a single-row replace doesn't wipe the outcome
+                    // icons of rows replaced earlier.
+                    setOutcomes(prev => {
+                        const next = new Map(prev);
+                        for (const r of list) {
+                            next.set(r.id, r);
+                        }
+                        return next;
+                    });
                     const detail =
                         erroredRows.length > 0
                             ? `${erroredRows.length} error${erroredRows.length !== 1 ? 's' : ''}: ${erroredRows
