@@ -82,6 +82,22 @@ export class ReplaceActionHandler implements ActionHandler {
                 continue;
             }
 
+            // Don't allow a replace to wipe a value: empty names break the
+            // textual model and there is no legitimate "clear" use case here.
+            // If one ever appears, add an explicit clearValue flag instead.
+            if (newValue.trim() === '') {
+                results.push({
+                    id,
+                    property,
+                    oldValue,
+                    newValue,
+                    success: false,
+                    changed: false,
+                    error: 'Replacement would clear the value'
+                });
+                continue;
+            }
+
             patchOps.push({ op: 'replace', path: path + '/' + property, value: newValue });
             results.push({ id, property, oldValue, newValue, success: true, changed: true });
         }

@@ -186,23 +186,31 @@ export function AdvancedSearch(): ReactElement {
     // expose the selected property — those rows render as a missing-value
     // placeholder and stay disabled for replace.
     const previews = useMemo(() => {
-        const map = new Map<string, { current: string | undefined; newValue: string; changes: boolean }>();
+        const map = new Map<string, { current: string | undefined; newValue: string; changes: boolean; invalid: boolean }>();
         if (!replaceOpen) return map;
         for (const r of results) {
             const current = getCurrentValue(r, selectedProperty);
             const computed = computeNewValue(current, findPattern, replaceWith, caseSensitive);
             const newValue = typeof computed === 'string' ? computed : (current ?? '');
             const changes = typeof current === 'string' && newValue !== current;
-            map.set(r.id, { current, newValue, changes });
+            // Mirrors the backend guard: a replace must not wipe the value.
+            const invalid = changes && newValue.trim() === '';
+            map.set(r.id, { current, newValue, changes, invalid });
         }
         return map;
     }, [results, findPattern, replaceWith, caseSensitive, replaceOpen, selectedProperty]);
 
     const includedIds = useMemo(() => results.filter(r => !excludedIds.has(r.id)).map(r => r.id), [results, excludedIds]);
 
-    // "Will modify N of M" counts only rows that are included AND whose preview actually changes.
+    // "Will modify N of M" counts only rows that are included AND whose preview
+    // actually changes into a valid (non-empty) value.
     const willChangeCount = useMemo(
-        () => results.filter(r => !excludedIds.has(r.id) && previews.get(r.id)?.changes).length,
+        () =>
+            results.filter(r => {
+                if (excludedIds.has(r.id)) return false;
+                const p = previews.get(r.id);
+                return !!p?.changes && !p.invalid;
+            }).length,
         [results, excludedIds, previews]
     );
 
@@ -460,7 +468,7 @@ export function AdvancedSearch(): ReactElement {
                             const excluded = excludedIds.has(item.id);
                             const preview = previews.get(item.id);
                             const outcome = outcomes.get(item.id);
-                            const willChange = !!preview?.changes;
+                            const willChange = !!preview?.changes && !preview.invalid;
                             return (
                                 <li
                                     key={`${item.id}-${idx}`}
@@ -542,9 +550,11 @@ export function AdvancedSearch(): ReactElement {
                                                             : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find`
                                                         : willChange
                                                           ? `Replace this element: ${preview?.current ?? item.name} → ${preview?.newValue}`
-                                                          : preview?.current === undefined
-                                                            ? `This element has no ${propertyLabel(selectedProperty).toLowerCase()} property`
-                                                            : 'No change in this element'
+                                                          : preview?.invalid
+                                                            ? 'Replacement would clear the value'
+                                                            : preview?.current === undefined
+                                                              ? `This element has no ${propertyLabel(selectedProperty).toLowerCase()} property`
+                                                              : 'No change in this element'
                                                 }
                                                 disabled={findPattern === '' || !willChange}
                                                 onClick={e => {
