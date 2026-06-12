@@ -12,6 +12,7 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, type Rea
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
+import { ModelChangedNotification } from '../common/model-change.notification.js';
 import { applyReplacement } from '../common/replace-semantics.js';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
 import { UndoNotification } from '../common/undo.notification.js';
@@ -45,6 +46,10 @@ const PROPERTY_LABELS: Record<string, string> = {
     visibility: 'Visibility'
 };
 
+// Model-change notifications arriving within this window after a replace are
+// attributed to the replace itself and must not retire its status/Undo button.
+const REPLACE_STATUS_GRACE_MS = 2000;
+
 function isEnumProperty(prop: string): boolean {
     return prop in ENUM_PROPERTY_VALUES;
 }
@@ -61,7 +66,7 @@ function getCurrentValue(r: SearchResult, prop: string): string | undefined {
 }
 
 export function AdvancedSearch(): ReactElement {
-    const { clientId, dispatchAction, dispatchNotification, listenAction } = useContext(VSCodeContext);
+    const { clientId, dispatchAction, dispatchNotification, listenAction, listenNotification } = useContext(VSCodeContext);
     const [query, setQuery] = useState('');
     const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
@@ -81,6 +86,16 @@ export function AdvancedSearch(): ReactElement {
     const [outcomes, setOutcomes] = useState<Map<string, ReplaceResult>>(new Map());
     const [replaceStatus, setReplaceStatus] = useState<ReplaceStatus | undefined>(undefined);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+    // Refs mirroring context values so the once-registered model-change
+    // listener never works with stale closures.
+    const clientIdRef = useRef(clientId);
+    const dispatchActionRef = useRef(dispatchAction);
+    const lastReplaceAtRef = useRef(0);
+
+    useEffect(() => {
+        clientIdRef.current = clientId;
+        dispatchActionRef.current = dispatchAction;
+    }, [clientId, dispatchAction]);
 
     const fireSearch = (value: string) => {
         setQuery(value);
@@ -153,11 +168,31 @@ export function AdvancedSearch(): ReactElement {
         }
     }, []);
 
+    // Registered once; reacts to any diagram model change (replace, manual
+    // edit, undo/redo) reported by the extension host.
+    useEffect(() => {
+        listenNotification(ModelChangedNotification.TYPE, () => {
+            // Refresh the current result list so names reflect the new model.
+            if (clientIdRef.current) {
+                dispatchActionRef.current(RequestAdvancedSearchAction.create({ query: queryRef.current }));
+            }
+            // Retire the replace status (and its Undo button) unless this
+            // change is the replace we just performed — after an unrelated
+            // edit, the button would undo that edit instead of the replace.
+            if (Date.now() - lastReplaceAtRef.current > REPLACE_STATUS_GRACE_MS) {
+                setReplaceStatus(undefined);
+            }
+        });
+        // listenNotification has no disposal handle; register exactly once.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     const dispatchReplace = (elementIds: string[]) => {
         if (!clientId || elementIds.length === 0 || findPattern === '') {
             return;
         }
         setReplaceStatus(undefined);
+        lastReplaceAtRef.current = Date.now();
         dispatchAction(
             RequestReplaceAction.create({
                 elementIds,
@@ -448,8 +483,13 @@ export function AdvancedSearch(): ReactElement {
                                 className='advanced-search__undo-btn'
                                 title='Undo this replace (Ctrl+Z)'
                                 onClick={() => {
+                                    // No optimistic clear: the undo round-trips
+                                    // through the diagram client, and the model-
+                                    // change notification it causes retires the
+                                    // status. If nothing happens (no active
+                                    // client), the button honestly stays.
+                                    lastReplaceAtRef.current = 0;
                                     dispatchNotification(UndoNotification.TYPE);
-                                    setReplaceStatus(undefined);
                                 }}
                             >
                                 <span className='codicon codicon-discard' />
