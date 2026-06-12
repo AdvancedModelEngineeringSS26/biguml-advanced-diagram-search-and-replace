@@ -88,11 +88,16 @@ export class ReplaceActionHandler implements ActionHandler {
 
         if (patchOps.length > 0) {
             const cmd = new ModelPatchCommand(this.modelState, JSON.stringify(patchOps));
-            // Execute via the command stack so the patch is recorded for undo/redo.
-            // Bypassing the stack (e.g. calling cmd.execute() directly) leaves the
-            // model server's history populated but the GLSP undo handler has nothing
-            // to pop, so the user-facing Undo button effectively no-ops.
-            await this.commandStack.execute(cmd);
+            try {
+                // Execute via the command stack so the patch is recorded for undo/redo.
+                // Bypassing the stack (e.g. calling cmd.execute() directly) leaves the
+                // model server's history populated but the GLSP undo handler has nothing
+                // to pop, so the user-facing Undo button effectively no-ops.
+                await this.commandStack.execute(cmd);
+            } catch (e) {
+                const message = e instanceof Error ? e.message : String(e);
+                return [ReplaceActionResponse.create({ ok: false, error: `Replace failed: ${message}` })];
+            }
             const submissionActions = await this.modelSubmissionHandler.submitModel();
             return [...submissionActions, ReplaceActionResponse.create({ ok: true, results })];
         }
