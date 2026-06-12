@@ -74,6 +74,7 @@ export function AdvancedSearch(): ReactElement {
     const [query, setQuery] = useState('');
     const queryRef = useRef('');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const [searchError, setSearchError] = useState<string | undefined>(undefined);
     const [replaceOpen, setReplaceOpen] = useState(false);
     const [selectedProperty, setSelectedProperty] = useState('name');
     // Used as the find pattern when `selectedProperty !== 'name'`. For the name
@@ -217,6 +218,7 @@ export function AdvancedSearch(): ReactElement {
         const handler = (action: unknown) => {
             if (AdvancedSearchActionResponse.is(action)) {
                 setResults(action.results);
+                setSearchError(action.error);
                 const ids = action.results.map(r => r.id).filter(Boolean);
                 applyDiagramHighlighting(ids);
                 // New search results invalidate prior per-row outcomes.
@@ -552,7 +554,13 @@ export function AdvancedSearch(): ReactElement {
                         })}
                     </ul>
                 ) : isSearching ? (
-                    <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>
+                    searchError ? (
+                        <p className='advanced-search__empty advanced-search__empty--error'>
+                            <span className='codicon codicon-warning' /> Could not parse query: {searchError}
+                        </p>
+                    ) : (
+                        <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>
+                    )
                 ) : null}
             </div>
         </div>

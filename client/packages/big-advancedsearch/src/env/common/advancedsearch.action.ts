@@ -45,6 +45,8 @@ export interface AdvancedSearchActionResponse extends ResponseAction {
         parentName?: string;
         details?: string;
     }[];
+    /** Set when the query could not be parsed; results is empty in that case. */
+    error?: string;
 }
 
 export namespace AdvancedSearchActionResponse {
@@ -55,12 +57,13 @@ export namespace AdvancedSearchActionResponse {
     }
 
     export function create(
-        options?: Omit<AdvancedSearchActionResponse, 'kind' | 'responseId'> & { responseId?: string }
+        options?: Partial<Omit<AdvancedSearchActionResponse, 'kind' | 'responseId'>> & { responseId?: string }
     ): AdvancedSearchActionResponse {
         return {
             kind: KIND,
             responseId: options?.responseId ?? '',
-            results: options?.results ?? []
+            results: options?.results ?? [],
+            error: options?.error
         };
     }
 }

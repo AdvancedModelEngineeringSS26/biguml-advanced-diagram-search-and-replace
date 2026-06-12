@@ -348,3 +348,10 @@
     outline: 1px solid var(--vscode-focusBorder, #007fd4);
     outline-offset: 1px;
 }
+
+.advanced-search__empty--error {
+    display: flex;
+    align-items: baseline;
+    gap: 0.35rem;
+    color: var(--vscode-errorForeground, #f48771);
+}

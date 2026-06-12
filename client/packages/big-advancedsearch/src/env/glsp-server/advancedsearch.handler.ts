@@ -68,7 +68,8 @@ export class AdvancedSearchActionHandler implements ActionHandler {
             return [AdvancedSearchActionResponse.create({ results: this.sortResults(results) })];
         } catch (error) {
             console.error('Could not parse query', error);
-            return [AdvancedSearchActionResponse.create({ results: [] })];
+            const message = error instanceof Error ? error.message : String(error);
+            return [AdvancedSearchActionResponse.create({ results: [], error: message })];
         }
     }
 
