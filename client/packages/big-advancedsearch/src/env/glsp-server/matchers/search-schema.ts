@@ -35,14 +35,24 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
             'Package',
             'InstanceSpecification',
             'Slot',
-            'Parameter',
+            'Parameter'
         ],
         valueType: 'string',
         defaultOperator: 'equals'
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package', 'InstanceSpecification', 'Relationship', 'Parameter'],
+        scopes: [
+            'Class',
+            'Attribute',
+            'Method',
+            'DataType',
+            'EnumerationLiteral',
+            'Package',
+            'InstanceSpecification',
+            'Relationship',
+            'Parameter'
+        ],
         valueType: 'string',
         defaultOperator: 'equals'
     },
@@ -89,8 +99,38 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         defaultOperator: 'equals'
     },
     {
+        key: 'isException',
+        scopes: ['Parameter'],
+        valueType: 'boolean',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'isStream',
+        scopes: ['Parameter'],
+        valueType: 'boolean',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'direction',
+        scopes: ['Parameter'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'parameterType', // this is a reference.. 
+        scopes: ['Parameter'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'effect', // effectType -> look at the ast.ts
+        scopes: ['Parameter'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
         key: 'isUnique',
-        scopes: ['Attribute'],
+        scopes: ['Attribute', 'Parameter'],
         valueType: 'boolean',
         defaultOperator: 'equals'
     },
@@ -133,7 +173,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
 
     {
         key: 'multiplicity',
-        scopes: ['Attribute'],
+        scopes: ['Attribute', 'Parameter'],
         valueType: 'string',
         defaultOperator: 'equals'
         // TODO: multiplicity is not yet settable via the property palette UI
