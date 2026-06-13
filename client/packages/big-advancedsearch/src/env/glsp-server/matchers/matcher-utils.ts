@@ -132,6 +132,9 @@ const filterValueExtractors: Record<string, (element: any) => unknown> = {
     aggregationType: element => element.aggregation,
     type: element => element.propertyType?.$refText,
     propertyType: element => element.propertyType?.ref?.name ?? element.propertyType?.$refText,
+    effectType: element => element.effect,
+    parameterDirection: element => element.direction,
+    parameterType: element => element.parameterType?.ref?.name ?? element.parameterType?.$refText
 };
 
 function getFilterValue(element: any, filter: SearchFilter): unknown {

@@ -111,7 +111,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         defaultOperator: 'equals'
     },
     {
-        key: 'direction',
+        key: 'parameterDirection',
         scopes: ['Parameter'],
         valueType: 'string',
         defaultOperator: 'equals'
@@ -123,7 +123,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         defaultOperator: 'equals'
     },
     {
-        key: 'effect', // effectType -> look at the ast.ts
+        key: 'effectType', // effectType -> look at the ast.ts
         scopes: ['Parameter'],
         valueType: 'string',
         defaultOperator: 'equals'
