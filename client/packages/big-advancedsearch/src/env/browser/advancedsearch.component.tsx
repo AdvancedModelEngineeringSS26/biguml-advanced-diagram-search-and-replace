@@ -11,7 +11,7 @@ import { BBadge, BCheckbox, BTextfield, VSCodeContext } from '@borkdominik-bigum
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
-import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
+import { RequestHighlightElementAction } from '../common/highlight.action.js';
 
 import type { SearchResult } from '../common/searchresult.js';
 import { SearchResultThumbnail } from './search-result-thumbnail.component.js';
@@ -151,34 +151,28 @@ export function AdvancedSearch(): ReactElement {
 
     useEffect(() => {
         const handler = (action: unknown) => {
-            if (AdvancedSearchActionResponse.is(action)) {
-                if (action.svgLoading === true) {
-                    // SVG export started — show loading indicator, keep existing results
-                    setLoading(true);
-                } else if (action.svgLoading === false) {
-                    // SVG export done, no pending search — clear loading indicator
-                    setLoading(false);
-                } else {
-                    // Normal results update
-                    setResults(action.results);
-                    const ids = action.results.map(r => r.id).filter(Boolean);
-                    applyDiagramHighlighting(ids);
-                    if (action.fullDiagramSvg) {
-                        setFullDiagramSvg(action.fullDiagramSvg);
-                        setLoading(false);
-                    } else if (action.results.length > 0) {
-                        setLoading(true);
-                    } else {
-                        setFullDiagramSvg(undefined);
-                        setLoading(false);
-                    }
-                }
+            if (!AdvancedSearchActionResponse.is(action)) {
+                return;
             }
-            if (HighlightElementActionResponse.is(action)) {
-                if (action.ok) {
-                    return;
-                }
+
+            // Background SVG export status — just toggle the loading indicator, keep current results.
+            if (action.exportInFlight !== undefined) {
+                setLoading(action.exportInFlight);
+                return;
             }
+
+            // Normal results update
+            setResults(action.results);
+            applyDiagramHighlighting(action.results.map(r => r.id).filter(Boolean));
+
+            const svg = action.fullDiagramSvg;
+            if (svg) {
+                setFullDiagramSvg(svg);
+            } else if (action.results.length === 0) {
+                setFullDiagramSvg(undefined);
+            }
+            // Loading while results exist but their SVG hasn't arrived yet.
+            setLoading(action.results.length > 0 && !svg);
         };
         listenAction(handler);
 

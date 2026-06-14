@@ -74,7 +74,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                         this.pendingSearchResults = undefined;
                     } else {
                         // Prefetch complete with no pending search — tell browser to clear the loading indicator
-                        this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: false }));
+                        this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: false }));
                     }
                 }
             })
@@ -160,7 +160,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
         if (!this.currentDiagramSvg && !this.svgExportInFlight && this.connectionManager.hasActiveClient()) {
             this.svgExportInFlight = true;
             this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
-            this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: true }));
+            this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: true }));
         }
     }
 }
