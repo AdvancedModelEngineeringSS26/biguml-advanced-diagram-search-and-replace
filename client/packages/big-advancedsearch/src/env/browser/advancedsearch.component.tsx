@@ -99,8 +99,7 @@ export function AdvancedSearch(): ReactElement {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
-    const [svgLoading, setSvgLoading] = useState(false);
-    const [svgPrefetching, setSvgPrefetching] = useState(false);
+    const [loading, setLoading] = useState(false);
     const [previewsEnabled, setPreviewsEnabled] = useState(false);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -110,7 +109,7 @@ export function AdvancedSearch(): ReactElement {
         debounceTimer.current = setTimeout(() => {
             if (clientId) {
                 if (!fullDiagramSvg) {
-                    setSvgLoading(true);
+                    setLoading(true);
                 }
                 dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
             }
@@ -154,26 +153,24 @@ export function AdvancedSearch(): ReactElement {
         const handler = (action: unknown) => {
             if (AdvancedSearchActionResponse.is(action)) {
                 if (action.svgLoading === true) {
-                    // SVG prefetch started — show loading indicator, keep existing results
-                    setSvgPrefetching(true);
+                    // SVG export started — show loading indicator, keep existing results
+                    setLoading(true);
                 } else if (action.svgLoading === false) {
-                    // SVG prefetch done, no pending search — just clear loading indicators
-                    setSvgPrefetching(false);
-                    setSvgLoading(false);
+                    // SVG export done, no pending search — clear loading indicator
+                    setLoading(false);
                 } else {
                     // Normal results update
-                    setSvgPrefetching(false);
                     setResults(action.results);
                     const ids = action.results.map(r => r.id).filter(Boolean);
                     applyDiagramHighlighting(ids);
                     if (action.fullDiagramSvg) {
                         setFullDiagramSvg(action.fullDiagramSvg);
-                        setSvgLoading(false);
+                        setLoading(false);
                     } else if (action.results.length > 0) {
-                        setSvgLoading(true);
+                        setLoading(true);
                     } else {
                         setFullDiagramSvg(undefined);
-                        setSvgLoading(false);
+                        setLoading(false);
                     }
                 }
             }
@@ -213,7 +210,7 @@ export function AdvancedSearch(): ReactElement {
                 />
             </div>
 
-            {previewsEnabled && (svgPrefetching || svgLoading) && <div className='advanced-search__svg-loading-bar' />}
+            {previewsEnabled && loading && <div className='advanced-search__svg-loading-bar' />}
 
             <div>
                 {results.length > 0 ? (
@@ -232,14 +229,14 @@ export function AdvancedSearch(): ReactElement {
                                         <SearchResultThumbnail
                                             svg={extracted?.svgContent}
                                             bounds={extracted?.bounds}
-                                            loading={svgLoading}
+                                            loading={loading}
                                         />
                                     )}
                                 </li>
                             );
                         })}
                     </ul>
-                ) : previewsEnabled && svgPrefetching ? null : (
+                ) : previewsEnabled && loading ? null : (
                     <p>No results found.</p>
                 )}
             </div>
