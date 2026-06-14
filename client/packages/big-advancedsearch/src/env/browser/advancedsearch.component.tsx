@@ -26,8 +26,31 @@ interface Bounds {
 interface ExtractedElement {
     /** Raw `<g>` markup, without the shared <defs> prepended. */
     markup: string;
-    /** Present for nodes (derived from a child <rect>); absent for edges. */
+    /** Present for nodes (derived from a child <rect>); absent for edges and nested labels. */
     bounds?: Bounds;
+    /** For bounds-less children (e.g. a property): the nearest bounds-aware ancestor (the class). */
+    ancestorId?: string;
+}
+
+/** Sprotty prefixes element IDs (e.g. "uml-diagram_0_<semanticId>"); take the last segment. */
+function semanticIdOf(elementId: string): string {
+    const lastUnderscoreIdx = elementId.lastIndexOf('_');
+    return lastUnderscoreIdx >= 0 ? elementId.substring(lastUnderscoreIdx + 1) : elementId;
+}
+
+/** Walk up the SVG to the nearest ancestor `<g>` that is bounds-aware (has a sizing rect). */
+function findBoundedAncestorId(group: Element): string | undefined {
+    let el = group.parentElement;
+    while (el) {
+        if (el.tagName.toLowerCase() === 'g' && el.hasAttribute('id')) {
+            const bounds = parseSprottyBounds(el);
+            if (bounds && bounds.width > 0 && bounds.height > 0) {
+                return semanticIdOf(el.getAttribute('id')!);
+            }
+        }
+        el = el.parentElement;
+    }
+    return undefined;
 }
 
 interface DiagramSvgData {
@@ -64,17 +87,17 @@ function extractElementsFromSvg(fullSvg: string): DiagramSvgData {
         const rawBounds = parseSprottyBounds(group);
         const bounds = rawBounds && rawBounds.width > 0 && rawBounds.height > 0 ? rawBounds : undefined;
         const markup = serializer.serializeToString(group);
+        const semanticId = semanticIdOf(elementId);
 
-        // Sprotty prefixes element IDs (e.g. "uml-diagram_0_<semanticId>").
-        const lastUnderscoreIdx = elementId.lastIndexOf('_');
-        const semanticId = lastUnderscoreIdx >= 0 ? elementId.substring(lastUnderscoreIdx + 1) : elementId;
+        // For bounds-less children, remember the enclosing node so we can show it as a fallback preview.
+        const ancestorId = bounds ? undefined : findBoundedAncestorId(group);
 
         // Don't let a bounds-less group (e.g. an edge) clobber a node already mapped to the same id.
         const existing = byId.get(semanticId);
         if (existing?.bounds && !bounds) {
             continue;
         }
-        byId.set(semanticId, { markup, bounds });
+        byId.set(semanticId, { markup, bounds, ancestorId });
     }
 
     return { defs, byId };
@@ -89,10 +112,32 @@ function unionBounds(a: Bounds, b: Bounds): Bounds {
 }
 
 /**
+ * Re-render the ancestor markup with the matched descendant emphasized (accent fill + bold),
+ * so a child result (e.g. a property) is recognizable within its parent's preview.
+ */
+function highlightDescendant(markup: string, childId: string): string {
+    const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`, 'image/svg+xml');
+    const root = doc.documentElement;
+
+    const target = root.querySelector(`[id="${childId}"], [id$="_${childId}"]`);
+    if (target) {
+        target.querySelectorAll('text, tspan').forEach(textEl => {
+            const style = (textEl as unknown as ElementCSSInlineStyle).style;
+            style.setProperty('fill', 'var(--vscode-textLink-foreground, #4ea1ff)', 'important');
+            style.setProperty('font-weight', 'bold', 'important');
+        });
+    }
+
+    return root.firstElementChild ? new XMLSerializer().serializeToString(root.firstElementChild) : markup;
+}
+
+/**
  * Build the SVG + bounds for a result's preview.
  * - Relations (have source/target ids): compose the two endpoint nodes plus the connector
  *   into one crop spanning both, so the preview is meaningful rather than a lone line.
- * - Everything else: the element's own `<g>` cropped to its bounds.
+ * - Nodes: the element's own `<g>` cropped to its bounds.
+ * - Bounds-less children (e.g. a property): the nearest bounds-aware ancestor (the class),
+ *   with the matched child highlighted within it.
  */
 function buildPreview(item: SearchResult, data: DiagramSvgData): { svg: string; bounds: Bounds } | undefined {
     if (item.sourceId && item.targetId) {
@@ -111,6 +156,13 @@ function buildPreview(item: SearchResult, data: DiagramSvgData): { svg: string; 
     const own = data.byId.get(item.id);
     if (own?.bounds) {
         return { svg: data.defs + own.markup, bounds: own.bounds };
+    }
+
+    if (own?.ancestorId) {
+        const ancestor = data.byId.get(own.ancestorId);
+        if (ancestor?.bounds) {
+            return { svg: data.defs + highlightDescendant(ancestor.markup, item.id), bounds: ancestor.bounds };
+        }
     }
     return undefined;
 }
