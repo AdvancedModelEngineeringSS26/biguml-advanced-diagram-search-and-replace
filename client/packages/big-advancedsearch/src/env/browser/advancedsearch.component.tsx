@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import { BBadge, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
+import { BBadge, BCheckbox, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
@@ -101,6 +101,7 @@ export function AdvancedSearch(): ReactElement {
     const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
     const [svgLoading, setSvgLoading] = useState(false);
     const [svgPrefetching, setSvgPrefetching] = useState(false);
+    const [previewsEnabled, setPreviewsEnabled] = useState(false);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fireSearch = (value: string) => {
@@ -204,9 +205,15 @@ export function AdvancedSearch(): ReactElement {
                 >
                     <span slot='end' className='codicon codicon-search' />
                 </BTextfield>
+                <BCheckbox
+                    className='advanced-search__preview-toggle'
+                    label='Show previews'
+                    checked={previewsEnabled}
+                    onChange={((e: Event) => setPreviewsEnabled(!!(e.target as HTMLInputElement).checked)) as any}
+                />
             </div>
 
-            {(svgPrefetching || svgLoading) && <div className='advanced-search__svg-loading-bar' />}
+            {previewsEnabled && (svgPrefetching || svgLoading) && <div className='advanced-search__svg-loading-bar' />}
 
             <div>
                 {results.length > 0 ? (
@@ -221,16 +228,18 @@ export function AdvancedSearch(): ReactElement {
                                     </div>
                                     {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
                                     {item.details && <div className='result-item__details'>{item.details}</div>}
-                                    <SearchResultThumbnail
-                                        svg={extracted?.svgContent}
-                                        bounds={extracted?.bounds}
-                                        loading={svgLoading}
-                                    />
+                                    {previewsEnabled && (
+                                        <SearchResultThumbnail
+                                            svg={extracted?.svgContent}
+                                            bounds={extracted?.bounds}
+                                            loading={svgLoading}
+                                        />
+                                    )}
                                 </li>
                             );
                         })}
                     </ul>
-                ) : svgPrefetching ? null : (
+                ) : previewsEnabled && svgPrefetching ? null : (
                     <p>No results found.</p>
                 )}
             </div>
