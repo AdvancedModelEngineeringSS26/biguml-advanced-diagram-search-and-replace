@@ -8,7 +8,7 @@
  **********************************************************************************/
 
 import type { DiagramModelState } from '@borkdominik-biguml/uml-glsp-server/vscode';
-import { SelectAction, SelectAllAction } from '@eclipse-glsp/protocol';
+import { FitToScreenAction, SelectAction, SelectAllAction } from '@eclipse-glsp/protocol';
 import { ModelState, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
@@ -77,6 +77,7 @@ export class AdvancedSearchActionHandler implements ActionHandler {
         return [
             SelectAllAction.create(false),
             SelectAction.create({ selectedElementsIDs: [uri] }),
+            FitToScreenAction.create([uri], { maxZoom: 1, padding: 50, animate: true }),
             HighlightElementActionResponse.create({ ok: true })
         ];
     }
