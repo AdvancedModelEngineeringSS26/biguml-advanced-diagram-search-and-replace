@@ -100,7 +100,8 @@ export function AdvancedSearch(): ReactElement {
     const [results, setResults] = useState<SearchResult[]>([]);
     const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
     const [loading, setLoading] = useState(false);
-    const [previewsEnabled, setPreviewsEnabled] = useState(false);
+    const [showAllPreviews, setShowAllPreviews] = useState(false);
+    const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fireSearch = (value: string) => {
@@ -198,13 +199,13 @@ export function AdvancedSearch(): ReactElement {
                 </BTextfield>
                 <BCheckbox
                     className='advanced-search__preview-toggle'
-                    label='Show previews'
-                    checked={previewsEnabled}
-                    onChange={((e: Event) => setPreviewsEnabled(!!(e.target as HTMLInputElement).checked)) as any}
+                    label='Show all previews'
+                    checked={showAllPreviews}
+                    onChange={((e: Event) => setShowAllPreviews(!!(e.target as HTMLInputElement).checked)) as any}
                 />
             </div>
 
-            {previewsEnabled && loading && <div className='advanced-search__svg-loading-bar' />}
+            {showAllPreviews && loading && <div className='advanced-search__svg-loading-bar' />}
 
             <div>
                 {results.length > 0 ? (
@@ -212,14 +213,20 @@ export function AdvancedSearch(): ReactElement {
                         {results.map((item, idx) => {
                             const extracted = svgElementMap.get(item.id);
                             return (
-                                <li key={idx} className='result-item' onClick={() => highlight((item as any).semanticUri ?? item.id)}>
+                                <li
+                                    key={idx}
+                                    className='result-item'
+                                    onClick={() => highlight((item as any).semanticUri ?? item.id)}
+                                    onMouseEnter={() => setHoveredIdx(idx)}
+                                    onMouseLeave={() => setHoveredIdx(null)}
+                                >
                                     <div className='result-item__header'>
                                         <BBadge className='result-item__tag'>{item.type}</BBadge>
                                         <span className='result-item__name'>{item.name}</span>
                                     </div>
                                     {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
                                     {item.details && <div className='result-item__details'>{item.details}</div>}
-                                    {previewsEnabled && (
+                                    {(showAllPreviews || hoveredIdx === idx) && (
                                         <SearchResultThumbnail
                                             svg={extracted?.svgContent}
                                             bounds={extracted?.bounds}
@@ -230,7 +237,7 @@ export function AdvancedSearch(): ReactElement {
                             );
                         })}
                     </ul>
-                ) : previewsEnabled && loading ? null : (
+                ) : showAllPreviews && loading ? null : (
                     <p>No results found.</p>
                 )}
             </div>
