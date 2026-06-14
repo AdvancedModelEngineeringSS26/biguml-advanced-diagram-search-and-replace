@@ -15,4 +15,7 @@ export interface SearchResult {
     details?: string;
     svg?: string;
     bounds?: { x: number; y: number; width: number; height: number };
+    /** For relations: the semantic ids of the connected source/target elements, used to build a composite preview. */
+    sourceId?: string;
+    targetId?: string;
 }
