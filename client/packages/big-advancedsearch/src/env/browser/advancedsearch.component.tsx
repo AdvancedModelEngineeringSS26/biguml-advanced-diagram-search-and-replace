@@ -16,28 +16,43 @@ import { RequestHighlightElementAction } from '../common/highlight.action.js';
 import type { SearchResult } from '../common/searchresult.js';
 import { SearchResultThumbnail } from './search-result-thumbnail.component.js';
 
-interface ExtractedElement {
-    svgContent: string;
-    bounds: { x: number; y: number; width: number; height: number };
+interface Bounds {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
+
+interface ExtractedElement {
+    /** Raw `<g>` markup, without the shared <defs> prepended. */
+    markup: string;
+    /** Present for nodes (derived from a child <rect>); absent for edges. */
+    bounds?: Bounds;
+}
+
+interface DiagramSvgData {
+    /** Shared <defs> (markers, gradients, etc.), prepended once when assembling a preview. */
+    defs: string;
+    byId: Map<string, ExtractedElement>;
+}
+
+const EMPTY_SVG_DATA: DiagramSvgData = { defs: '', byId: new Map() };
 
 /**
  * Parse the full diagram SVG and extract per-element `<g>` subtrees by their ID.
- * Sprotty assigns element IDs to `<g>` groups in the rendered SVG.
+ * Sprotty assigns element IDs to `<g>` groups in the rendered SVG. Nodes carry bounds
+ * (from a child <rect>); edges are kept too (without bounds) so relations can be composed.
  */
-function extractElementsFromSvg(fullSvg: string): Map<string, ExtractedElement> {
-    const map = new Map<string, ExtractedElement>();
+function extractElementsFromSvg(fullSvg: string): DiagramSvgData {
+    const byId = new Map<string, ExtractedElement>();
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(fullSvg, 'image/svg+xml');
 
-    // Collect shared <defs> (markers, gradients, etc.)
-    const defs = doc.querySelector('defs');
-    const defsMarkup = defs ? new XMLSerializer().serializeToString(defs) : '';
+    const defsEl = doc.querySelector('defs');
+    const defs = defsEl ? new XMLSerializer().serializeToString(defsEl) : '';
 
     const serializer = new XMLSerializer();
-
-    // Find all <g> elements with an id attribute
     const groups = doc.querySelectorAll('g[id]');
 
     for (const group of groups) {
@@ -46,27 +61,58 @@ function extractElementsFromSvg(fullSvg: string): Map<string, ExtractedElement> 
             continue;
         }
 
-        // Parse bounds from the element structure:
-        // Sprotty <g> elements use transform="translate(x, y)" for position
-        // and child <rect> elements for dimensions.
-        const bounds = parseSprottyBounds(group);
-        if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
-            continue;
-        }
-
-        const innerMarkup = serializer.serializeToString(group);
+        const rawBounds = parseSprottyBounds(group);
+        const bounds = rawBounds && rawBounds.width > 0 && rawBounds.height > 0 ? rawBounds : undefined;
+        const markup = serializer.serializeToString(group);
 
         // Sprotty prefixes element IDs (e.g. "uml-diagram_0_<semanticId>").
-        // Extract the semantic ID by finding the last UUID-like segment.
         const lastUnderscoreIdx = elementId.lastIndexOf('_');
         const semanticId = lastUnderscoreIdx >= 0 ? elementId.substring(lastUnderscoreIdx + 1) : elementId;
-        map.set(semanticId, {
-            svgContent: defsMarkup + innerMarkup,
-            bounds
-        });
+
+        // Don't let a bounds-less group (e.g. an edge) clobber a node already mapped to the same id.
+        const existing = byId.get(semanticId);
+        if (existing?.bounds && !bounds) {
+            continue;
+        }
+        byId.set(semanticId, { markup, bounds });
     }
 
-    return map;
+    return { defs, byId };
+}
+
+function unionBounds(a: Bounds, b: Bounds): Bounds {
+    const minX = Math.min(a.x, b.x);
+    const minY = Math.min(a.y, b.y);
+    const maxX = Math.max(a.x + a.width, b.x + b.width);
+    const maxY = Math.max(a.y + a.height, b.y + b.height);
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/**
+ * Build the SVG + bounds for a result's preview.
+ * - Relations (have source/target ids): compose the two endpoint nodes plus the connector
+ *   into one crop spanning both, so the preview is meaningful rather than a lone line.
+ * - Everything else: the element's own `<g>` cropped to its bounds.
+ */
+function buildPreview(item: SearchResult, data: DiagramSvgData): { svg: string; bounds: Bounds } | undefined {
+    if (item.sourceId && item.targetId) {
+        const src = data.byId.get(item.sourceId);
+        const tgt = data.byId.get(item.targetId);
+        if (src?.bounds && tgt?.bounds) {
+            const edgeMarkup = data.byId.get(item.id)?.markup ?? '';
+            return {
+                svg: data.defs + edgeMarkup + src.markup + tgt.markup,
+                bounds: unionBounds(src.bounds, tgt.bounds)
+            };
+        }
+        return undefined;
+    }
+
+    const own = data.byId.get(item.id);
+    if (own?.bounds) {
+        return { svg: data.defs + own.markup, bounds: own.bounds };
+    }
+    return undefined;
 }
 
 /**
@@ -117,15 +163,18 @@ export function AdvancedSearch(): ReactElement {
         }, 150);
     };
 
-    const highlight = (semanticUri: string | undefined) => {
+    const highlight = (item: SearchResult) => {
+        const semanticUri = (item as any).semanticUri ?? item.id;
         if (!clientId || !semanticUri) return;
-        dispatchAction(RequestHighlightElementAction.create({ semanticUri }));
+        // Relations: fit to the connected nodes since the edge itself has no fittable bounds.
+        const fitElementIds = item.sourceId && item.targetId ? [item.sourceId, item.targetId] : undefined;
+        dispatchAction(RequestHighlightElementAction.create({ semanticUri, fitElementIds }));
     };
 
-    // Parse the full SVG once and build a lookup map of elementId → { svgContent, bounds }
-    const svgElementMap = useMemo(() => {
+    // Parse the full SVG once into shared <defs> + a per-element lookup of markup/bounds.
+    const svgData = useMemo(() => {
         if (!fullDiagramSvg) {
-            return new Map<string, ExtractedElement>();
+            return EMPTY_SVG_DATA;
         }
         return extractElementsFromSvg(fullDiagramSvg);
     }, [fullDiagramSvg]);
@@ -211,12 +260,12 @@ export function AdvancedSearch(): ReactElement {
                 {results.length > 0 ? (
                     <ul className='advanced-search__results'>
                         {results.map((item, idx) => {
-                            const extracted = svgElementMap.get(item.id);
+                            const preview = buildPreview(item, svgData);
                             return (
                                 <li
                                     key={idx}
                                     className='result-item'
-                                    onClick={() => highlight((item as any).semanticUri ?? item.id)}
+                                    onClick={() => highlight(item)}
                                     onMouseEnter={() => setHoveredIdx(idx)}
                                     onMouseLeave={() => setHoveredIdx(null)}
                                 >
@@ -227,11 +276,7 @@ export function AdvancedSearch(): ReactElement {
                                     {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
                                     {item.details && <div className='result-item__details'>{item.details}</div>}
                                     {(showAllPreviews || hoveredIdx === idx) && (
-                                        <SearchResultThumbnail
-                                            svg={extracted?.svgContent}
-                                            bounds={extracted?.bounds}
-                                            loading={loading}
-                                        />
+                                        <SearchResultThumbnail svg={preview?.svg} bounds={preview?.bounds} loading={loading} />
                                     )}
                                 </li>
                             );

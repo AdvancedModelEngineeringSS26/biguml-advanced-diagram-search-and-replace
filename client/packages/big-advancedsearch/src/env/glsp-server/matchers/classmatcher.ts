@@ -189,7 +189,9 @@ export class ClassDiagramMatcher implements IMatcher {
                 id: relation.__id,
                 type,
                 name: relationName,
-                details: `${type} from ${sourceName} to ${targetName}`
+                details: `${type} from ${sourceName} to ${targetName}`,
+                sourceId,
+                targetId
             });
         }
     }
