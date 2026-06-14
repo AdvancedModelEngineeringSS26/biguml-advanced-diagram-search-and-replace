@@ -40,6 +40,10 @@ export function SearchResultThumbnail({ svg, bounds, loading }: SearchResultThum
         );
     }
 
-    // No SVG available — render nothing
-    return <></>;
+    return (
+        <div className='result-item__thumbnail-container result-item__thumbnail-container--empty'>
+            <span className='codicon codicon-circle-slash' />
+            <span className='result-item__thumbnail-empty-text'>No preview</span>
+        </div>
+    );
 }
