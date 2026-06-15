@@ -135,7 +135,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         defaultOperator: 'equals'
     },
     {
-        key: 'aggregationType',
+        key: 'aggregation',
         scopes: ['Attribute', 'Relationship'],
         valueType: 'string',
         defaultOperator: 'equals'

@@ -129,7 +129,6 @@ function matchesFilter(element: any, filter: SearchFilter, index: Map<string, Cl
 }
 
 const filterValueExtractors: Record<string, (element: any) => unknown> = {
-    aggregationType: element => element.aggregation,
     type: element => element.propertyType?.$refText,
     propertyType: element => element.propertyType?.ref?.name ?? element.propertyType?.$refText,
     effectType: element => element.effect,
