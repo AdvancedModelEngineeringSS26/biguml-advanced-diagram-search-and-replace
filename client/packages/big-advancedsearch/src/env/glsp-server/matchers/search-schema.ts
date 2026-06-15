@@ -117,7 +117,13 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         defaultOperator: 'equals'
     },
     {
-        key: 'parameterType', // this is a reference.. 
+        key: 'definingFeature',
+        scopes: ['Slot'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'parameterType', // this is a reference..
         scopes: ['Parameter'],
         valueType: 'string',
         defaultOperator: 'equals'

@@ -133,7 +133,8 @@ const filterValueExtractors: Record<string, (element: any) => unknown> = {
     propertyType: element => element.propertyType?.ref?.name ?? element.propertyType?.$refText,
     effectType: element => element.effect,
     parameterDirection: element => element.direction,
-    parameterType: element => element.parameterType?.ref?.name ?? element.parameterType?.$refText
+    parameterType: element => element.parameterType?.ref?.name ?? element.parameterType?.$refText,
+    definingFeature: element => element.definingFeature?.ref?.name ?? element.definingFeature?.$refText
 };
 
 function getFilterValue(element: any, filter: SearchFilter): unknown {
