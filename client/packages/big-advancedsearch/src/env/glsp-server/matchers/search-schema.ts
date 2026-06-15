@@ -34,14 +34,25 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
             'PrimitiveType',
             'Package',
             'InstanceSpecification',
-            'Slot'
+            'Slot',
+            'Parameter'
         ],
         valueType: 'string',
         defaultOperator: 'equals'
     },
     {
         key: 'visibility',
-        scopes: ['Class', 'Attribute', 'Method', 'DataType', 'EnumerationLiteral', 'Package', 'InstanceSpecification', 'Relationship'],
+        scopes: [
+            'Class',
+            'Attribute',
+            'Method',
+            'DataType',
+            'EnumerationLiteral',
+            'Package',
+            'InstanceSpecification',
+            'Relationship',
+            'Parameter'
+        ],
         valueType: 'string',
         defaultOperator: 'equals'
     },
@@ -83,19 +94,61 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
     },
     {
         key: 'isOrdered',
-        scopes: ['Attribute'],
+        scopes: ['Attribute', 'Parameter'],
         valueType: 'boolean',
         defaultOperator: 'equals'
     },
     {
+        key: 'isException',
+        scopes: ['Parameter'],
+        valueType: 'boolean',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'isStream',
+        scopes: ['Parameter'],
+        valueType: 'boolean',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'parameterDirection',
+        scopes: ['Parameter'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'definingFeature',
+        scopes: ['Slot'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'parameterType', // this is a reference..
+        scopes: ['Parameter'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'effectType', // effectType -> look at the ast.ts
+        scopes: ['Parameter'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
         key: 'isUnique',
-        scopes: ['Attribute'],
+        scopes: ['Attribute', 'Parameter'],
         valueType: 'boolean',
         defaultOperator: 'equals'
     },
     {
         key: 'aggregation',
         scopes: ['Attribute', 'Relationship'],
+        valueType: 'string',
+        defaultOperator: 'equals'
+    },
+    {
+        key: 'propertyType',
+        scopes: ['Attribute'],
         valueType: 'string',
         defaultOperator: 'equals'
     },
@@ -126,7 +179,7 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
 
     {
         key: 'multiplicity',
-        scopes: ['Attribute'],
+        scopes: ['Attribute', 'Parameter'],
         valueType: 'string',
         defaultOperator: 'equals'
         // TODO: multiplicity is not yet settable via the property palette UI
