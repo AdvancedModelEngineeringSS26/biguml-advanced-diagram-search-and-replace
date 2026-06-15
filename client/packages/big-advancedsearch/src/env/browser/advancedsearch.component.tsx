@@ -7,37 +7,75 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import { BBadge, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
+import { BBadge, BCheckbox, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
-import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
+import { RequestHighlightElementAction } from '../common/highlight.action.js';
 
 import type { SearchResult } from '../common/searchresult.js';
 import { SearchResultThumbnail } from './search-result-thumbnail.component.js';
 
-interface ExtractedElement {
-    svgContent: string;
-    bounds: { x: number; y: number; width: number; height: number };
+interface Bounds {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
 }
+
+interface ExtractedElement {
+    /** Raw `<g>` markup, without the shared <defs> prepended. */
+    markup: string;
+    /** Present for nodes (derived from a child <rect>); absent for edges and nested labels. */
+    bounds?: Bounds;
+    /** For bounds-less children (e.g. a property): the nearest bounds-aware ancestor (the class). */
+    ancestorId?: string;
+}
+
+/** Sprotty prefixes element IDs (e.g. "uml-diagram_0_<semanticId>"); take the last segment. */
+function semanticIdOf(elementId: string): string {
+    const lastUnderscoreIdx = elementId.lastIndexOf('_');
+    return lastUnderscoreIdx >= 0 ? elementId.substring(lastUnderscoreIdx + 1) : elementId;
+}
+
+/** Walk up the SVG to the nearest ancestor `<g>` that is bounds-aware (has a sizing rect). */
+function findBoundedAncestorId(group: Element): string | undefined {
+    let el = group.parentElement;
+    while (el) {
+        if (el.tagName.toLowerCase() === 'g' && el.hasAttribute('id')) {
+            const bounds = parseSprottyBounds(el);
+            if (bounds && bounds.width > 0 && bounds.height > 0) {
+                return semanticIdOf(el.getAttribute('id')!);
+            }
+        }
+        el = el.parentElement;
+    }
+    return undefined;
+}
+
+interface DiagramSvgData {
+    /** Shared <defs> (markers, gradients, etc.), prepended once when assembling a preview. */
+    defs: string;
+    byId: Map<string, ExtractedElement>;
+}
+
+const EMPTY_SVG_DATA: DiagramSvgData = { defs: '', byId: new Map() };
 
 /**
  * Parse the full diagram SVG and extract per-element `<g>` subtrees by their ID.
- * Sprotty assigns element IDs to `<g>` groups in the rendered SVG.
+ * Sprotty assigns element IDs to `<g>` groups in the rendered SVG. Nodes carry bounds
+ * (from a child <rect>); edges are kept too (without bounds) so relations can be composed.
  */
-function extractElementsFromSvg(fullSvg: string): Map<string, ExtractedElement> {
-    const map = new Map<string, ExtractedElement>();
+function extractElementsFromSvg(fullSvg: string): DiagramSvgData {
+    const byId = new Map<string, ExtractedElement>();
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(fullSvg, 'image/svg+xml');
 
-    // Collect shared <defs> (markers, gradients, etc.)
-    const defs = doc.querySelector('defs');
-    const defsMarkup = defs ? new XMLSerializer().serializeToString(defs) : '';
+    const defsEl = doc.querySelector('defs');
+    const defs = defsEl ? new XMLSerializer().serializeToString(defsEl) : '';
 
     const serializer = new XMLSerializer();
-
-    // Find all <g> elements with an id attribute
     const groups = doc.querySelectorAll('g[id]');
 
     for (const group of groups) {
@@ -46,27 +84,87 @@ function extractElementsFromSvg(fullSvg: string): Map<string, ExtractedElement> 
             continue;
         }
 
-        // Parse bounds from the element structure:
-        // Sprotty <g> elements use transform="translate(x, y)" for position
-        // and child <rect> elements for dimensions.
-        const bounds = parseSprottyBounds(group);
-        if (!bounds || bounds.width <= 0 || bounds.height <= 0) {
+        const rawBounds = parseSprottyBounds(group);
+        const bounds = rawBounds && rawBounds.width > 0 && rawBounds.height > 0 ? rawBounds : undefined;
+        const markup = serializer.serializeToString(group);
+        const semanticId = semanticIdOf(elementId);
+
+        // For bounds-less children, remember the enclosing node so we can show it as a fallback preview.
+        const ancestorId = bounds ? undefined : findBoundedAncestorId(group);
+
+        // Don't let a bounds-less group (e.g. an edge) clobber a node already mapped to the same id.
+        const existing = byId.get(semanticId);
+        if (existing?.bounds && !bounds) {
             continue;
         }
+        byId.set(semanticId, { markup, bounds, ancestorId });
+    }
 
-        const innerMarkup = serializer.serializeToString(group);
+    return { defs, byId };
+}
 
-        // Sprotty prefixes element IDs (e.g. "uml-diagram_0_<semanticId>").
-        // Extract the semantic ID by finding the last UUID-like segment.
-        const lastUnderscoreIdx = elementId.lastIndexOf('_');
-        const semanticId = lastUnderscoreIdx >= 0 ? elementId.substring(lastUnderscoreIdx + 1) : elementId;
-        map.set(semanticId, {
-            svgContent: defsMarkup + innerMarkup,
-            bounds
+function unionBounds(a: Bounds, b: Bounds): Bounds {
+    const minX = Math.min(a.x, b.x);
+    const minY = Math.min(a.y, b.y);
+    const maxX = Math.max(a.x + a.width, b.x + b.width);
+    const maxY = Math.max(a.y + a.height, b.y + b.height);
+    return { x: minX, y: minY, width: maxX - minX, height: maxY - minY };
+}
+
+/**
+ * Re-render the ancestor markup with the matched descendant emphasized (accent fill + bold),
+ * so a child result (e.g. a property) is recognizable within its parent's preview.
+ */
+function highlightDescendant(markup: string, childId: string): string {
+    const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`, 'image/svg+xml');
+    const root = doc.documentElement;
+
+    const target = root.querySelector(`[id="${childId}"], [id$="_${childId}"]`);
+    if (target) {
+        target.querySelectorAll('text, tspan').forEach(textEl => {
+            const style = (textEl as unknown as ElementCSSInlineStyle).style;
+            style.setProperty('fill', 'var(--vscode-textLink-foreground, #4ea1ff)', 'important');
+            style.setProperty('font-weight', 'bold', 'important');
         });
     }
 
-    return map;
+    return root.firstElementChild ? new XMLSerializer().serializeToString(root.firstElementChild) : markup;
+}
+
+/**
+ * Build the SVG + bounds for a result's preview.
+ * - Relations (have source/target ids): compose the two endpoint nodes plus the connector
+ *   into one crop spanning both, so the preview is meaningful rather than a lone line.
+ * - Nodes: the element's own `<g>` cropped to its bounds.
+ * - Bounds-less children (e.g. a property): the nearest bounds-aware ancestor (the class),
+ *   with the matched child highlighted within it.
+ */
+function buildPreview(item: SearchResult, data: DiagramSvgData): { svg: string; bounds: Bounds } | undefined {
+    if (item.sourceId && item.targetId) {
+        const src = data.byId.get(item.sourceId);
+        const tgt = data.byId.get(item.targetId);
+        if (src?.bounds && tgt?.bounds) {
+            const edgeMarkup = data.byId.get(item.id)?.markup ?? '';
+            return {
+                svg: data.defs + edgeMarkup + src.markup + tgt.markup,
+                bounds: unionBounds(src.bounds, tgt.bounds)
+            };
+        }
+        return undefined;
+    }
+
+    const own = data.byId.get(item.id);
+    if (own?.bounds) {
+        return { svg: data.defs + own.markup, bounds: own.bounds };
+    }
+
+    if (own?.ancestorId) {
+        const ancestor = data.byId.get(own.ancestorId);
+        if (ancestor?.bounds) {
+            return { svg: data.defs + highlightDescendant(ancestor.markup, item.id), bounds: ancestor.bounds };
+        }
+    }
+    return undefined;
 }
 
 /**
@@ -99,8 +197,9 @@ export function AdvancedSearch(): ReactElement {
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
     const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
-    const [svgLoading, setSvgLoading] = useState(false);
-    const [svgPrefetching, setSvgPrefetching] = useState(false);
+    const [loading, setLoading] = useState(false);
+    const [showAllPreviews, setShowAllPreviews] = useState(false);
+    const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fireSearch = (value: string) => {
@@ -109,22 +208,25 @@ export function AdvancedSearch(): ReactElement {
         debounceTimer.current = setTimeout(() => {
             if (clientId) {
                 if (!fullDiagramSvg) {
-                    setSvgLoading(true);
+                    setLoading(true);
                 }
                 dispatchAction(RequestAdvancedSearchAction.create({ query: value }));
             }
         }, 150);
     };
 
-    const highlight = (semanticUri: string | undefined) => {
+    const highlight = (item: SearchResult) => {
+        const semanticUri = (item as any).semanticUri ?? item.id;
         if (!clientId || !semanticUri) return;
-        dispatchAction(RequestHighlightElementAction.create({ semanticUri }));
+        // Relations: fit to the connected nodes since the edge itself has no fittable bounds.
+        const fitElementIds = item.sourceId && item.targetId ? [item.sourceId, item.targetId] : undefined;
+        dispatchAction(RequestHighlightElementAction.create({ semanticUri, fitElementIds }));
     };
 
-    // Parse the full SVG once and build a lookup map of elementId → { svgContent, bounds }
-    const svgElementMap = useMemo(() => {
+    // Parse the full SVG once into shared <defs> + a per-element lookup of markup/bounds.
+    const svgData = useMemo(() => {
         if (!fullDiagramSvg) {
-            return new Map<string, ExtractedElement>();
+            return EMPTY_SVG_DATA;
         }
         return extractElementsFromSvg(fullDiagramSvg);
     }, [fullDiagramSvg]);
@@ -151,36 +253,28 @@ export function AdvancedSearch(): ReactElement {
 
     useEffect(() => {
         const handler = (action: unknown) => {
-            if (AdvancedSearchActionResponse.is(action)) {
-                if (action.svgLoading === true) {
-                    // SVG prefetch started — show loading indicator, keep existing results
-                    setSvgPrefetching(true);
-                } else if (action.svgLoading === false) {
-                    // SVG prefetch done, no pending search — just clear loading indicators
-                    setSvgPrefetching(false);
-                    setSvgLoading(false);
-                } else {
-                    // Normal results update
-                    setSvgPrefetching(false);
-                    setResults(action.results);
-                    const ids = action.results.map(r => r.id).filter(Boolean);
-                    applyDiagramHighlighting(ids);
-                    if (action.fullDiagramSvg) {
-                        setFullDiagramSvg(action.fullDiagramSvg);
-                        setSvgLoading(false);
-                    } else if (action.results.length > 0) {
-                        setSvgLoading(true);
-                    } else {
-                        setFullDiagramSvg(undefined);
-                        setSvgLoading(false);
-                    }
-                }
+            if (!AdvancedSearchActionResponse.is(action)) {
+                return;
             }
-            if (HighlightElementActionResponse.is(action)) {
-                if (action.ok) {
-                    return;
-                }
+
+            // Background SVG export status — just toggle the loading indicator, keep current results.
+            if (action.exportInFlight !== undefined) {
+                setLoading(action.exportInFlight);
+                return;
             }
+
+            // Normal results update
+            setResults(action.results);
+            applyDiagramHighlighting(action.results.map(r => r.id).filter(Boolean));
+
+            const svg = action.fullDiagramSvg;
+            if (svg) {
+                setFullDiagramSvg(svg);
+            } else if (action.results.length === 0) {
+                setFullDiagramSvg(undefined);
+            }
+            // Loading while results exist but their SVG hasn't arrived yet.
+            setLoading(action.results.length > 0 && !svg);
         };
         listenAction(handler);
 
@@ -204,33 +298,43 @@ export function AdvancedSearch(): ReactElement {
                 >
                     <span slot='end' className='codicon codicon-search' />
                 </BTextfield>
+                <BCheckbox
+                    className='advanced-search__preview-toggle'
+                    label='Show all previews'
+                    checked={showAllPreviews}
+                    onChange={((e: Event) => setShowAllPreviews(!!(e.target as HTMLInputElement).checked)) as any}
+                />
             </div>
 
-            {(svgPrefetching || svgLoading) && <div className='advanced-search__svg-loading-bar' />}
+            {showAllPreviews && loading && <div className='advanced-search__svg-loading-bar' />}
 
             <div>
                 {results.length > 0 ? (
                     <ul className='advanced-search__results'>
                         {results.map((item, idx) => {
-                            const extracted = svgElementMap.get(item.id);
+                            const preview = buildPreview(item, svgData);
                             return (
-                                <li key={idx} className='result-item' onClick={() => highlight((item as any).semanticUri ?? item.id)}>
+                                <li
+                                    key={idx}
+                                    className='result-item'
+                                    onClick={() => highlight(item)}
+                                    onMouseEnter={() => setHoveredIdx(idx)}
+                                    onMouseLeave={() => setHoveredIdx(null)}
+                                >
                                     <div className='result-item__header'>
                                         <BBadge className='result-item__tag'>{item.type}</BBadge>
                                         <span className='result-item__name'>{item.name}</span>
                                     </div>
                                     {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
                                     {item.details && <div className='result-item__details'>{item.details}</div>}
-                                    <SearchResultThumbnail
-                                        svg={extracted?.svgContent}
-                                        bounds={extracted?.bounds}
-                                        loading={svgLoading}
-                                    />
+                                    {(showAllPreviews || hoveredIdx === idx) && (
+                                        <SearchResultThumbnail svg={preview?.svg} bounds={preview?.bounds} loading={loading} />
+                                    )}
                                 </li>
                             );
                         })}
                     </ul>
-                ) : svgPrefetching ? null : (
+                ) : showAllPreviews && loading ? null : (
                     <p>No results found.</p>
                 )}
             </div>

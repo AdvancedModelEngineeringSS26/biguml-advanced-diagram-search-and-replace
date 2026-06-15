@@ -121,6 +121,23 @@
     100% { transform: translateX(350%); }
 }
 
+/* Placeholder shown for results without an extractable preview (e.g. edges/relationships) */
+.result-item__thumbnail-container--empty {
+    height: 60px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.25rem;
+    color: var(--vscode-descriptionForeground, #999);
+}
+.result-item__thumbnail-container--empty .codicon {
+    font-size: 1.2rem;
+}
+.result-item__thumbnail-empty-text {
+    font-size: 0.8rem;
+}
+
 /* Loading shimmer animation */
 .result-item__thumbnail-container--loading {
     height: 60px;

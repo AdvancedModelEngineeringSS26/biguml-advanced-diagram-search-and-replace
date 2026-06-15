@@ -37,6 +37,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected currentDiagramSvg: string | undefined;
     protected pendingSearchResults: SearchResult[] | undefined;
     protected svgExportInFlight = false;
+    protected lastQuery = '';
 
     constructor(@inject(TYPES.WebviewViewOptions) options: WebviewViewProviderOptions) {
         super({
@@ -73,7 +74,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                         this.pendingSearchResults = undefined;
                     } else {
                         // Prefetch complete with no pending search — tell browser to clear the loading indicator
-                        this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: false }));
+                        this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: false }));
                     }
                 }
             })
@@ -84,6 +85,11 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
         const disposables = new DisposableCollection();
         disposables.push(
             super.resolveWebviewProtocol(messenger),
+            this.actionMessenger.onActionMessage(message => {
+                if (RequestAdvancedSearchAction.is(message.action)) {
+                    this.lastQuery = message.action.query;
+                }
+            }),
             this.actionCache.onDidChange(message => {
                 if (AdvancedSearchActionResponse.is(message.action) && message.action.results.length > 0) {
                     const results = message.action.results;
@@ -143,7 +149,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     }
 
     protected requestModel(): void {
-        this.actionDispatcher.dispatch(RequestAdvancedSearchAction.create({ query: '' }));
+        this.actionDispatcher.dispatch(RequestAdvancedSearchAction.create({ query: this.lastQuery }));
     }
 
     protected override handleOnVisible(): void {
@@ -154,7 +160,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
         if (!this.currentDiagramSvg && !this.svgExportInFlight && this.connectionManager.hasActiveClient()) {
             this.svgExportInFlight = true;
             this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
-            this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ svgLoading: true }));
+            this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: true }));
         }
     }
 }
