@@ -183,3 +183,102 @@
     opacity: 1;
     transition: opacity 150ms ease;
 }
+
+.advanced-search__cheatsheet-toggle {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    margin-top: 6px;
+    padding: 2px 6px;
+    background: none;
+    border: none;
+    color: var(--vscode-textLink-foreground, #4daafc);
+    font-size: 11px;
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.advanced-search__cheatsheet-toggle:hover {
+    opacity: 1;
+    text-decoration: underline;
+}
+
+.advanced-search__cheatsheet {
+    margin-top: 8px;
+    padding: 8px;
+    border: 1px solid var(--vscode-panel-border, #444);
+    border-radius: 4px;
+    font-size: 11px;
+    background: var(--vscode-editor-background, #1e1e1e);
+}
+
+.cheatsheet__intro {
+    margin: 0 0 8px 0;
+    color: var(--vscode-descriptionForeground, #999);
+    font-size: 11px;
+}
+
+.cheatsheet__section {
+    margin-bottom: 10px;
+}
+
+.cheatsheet__category {
+    font-weight: bold;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--vscode-descriptionForeground, #999);
+    margin-bottom: 4px;
+    padding-bottom: 2px;
+    border-bottom: 1px solid var(--vscode-panel-border, #333);
+}
+
+.cheatsheet__entry {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    padding: 3px 4px;
+    margin-bottom: 2px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.cheatsheet__entry:hover {
+    background: var(--vscode-list-hoverBackground, #2a2d2e);
+}
+
+.cheatsheet__syntax {
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 11px;
+    color: var(--vscode-textPreformat-foreground, #d7ba7d);
+}
+
+.cheatsheet__desc {
+    font-size: 10px;
+    color: var(--vscode-descriptionForeground, #999);
+}
+
+.result-item__tag--class {
+    background: #1a6fa8;
+    color: #fff;
+}
+
+.result-item__tag--attribute {
+    background: #2d7a3a;
+    color: #fff;
+}
+
+.result-item__tag--method {
+    background: #a85f1a;
+    color: #fff;
+}
+
+.result-item__tag--relationship {
+    background: #6b2fa8;
+    color: #fff;
+}
+
+.result-item__tag--default {
+    background: var(--vscode-badge-background, #4d4d4d);
+    color: var(--vscode-badge-foreground, #fff);
+}

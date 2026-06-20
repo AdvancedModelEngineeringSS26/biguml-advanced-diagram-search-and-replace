@@ -7,14 +7,92 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import { BBadge, BCheckbox, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
+import { BCheckbox, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
-import { RequestHighlightElementAction } from '../common/highlight.action.js';
+import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
 
 import type { SearchResult } from '../common/searchresult.js';
 import { SearchResultThumbnail } from './search-result-thumbnail.component.js';
+
+
+const CHEATSHEET = [
+    {
+        category: 'Basic',
+        entries: [
+            { syntax: 'Class', description: 'All classes' },
+            { syntax: 'Attribute', description: 'All attributes' },
+            { syntax: 'Method', description: 'All methods' },
+            { syntax: 'Relationship', description: 'All relationships' }
+        ]
+    },
+    {
+        category: 'Filters',
+        entries: [
+            { syntax: 'Class[name="Foo"]', description: 'Class named Foo (exact)' },
+            { syntax: 'Class[name~"Foo"]', description: 'Class whose name contains Foo' },
+            { syntax: 'Class[isAbstract=true]', description: 'Abstract classes' },
+            { syntax: 'Class[visibility="PUBLIC"]', description: 'Public classes' },
+            { syntax: 'Attribute[isDerived=true]', description: 'Derived attributes' },
+            { syntax: 'Attribute[type="String"]', description: 'Attributes of type String' },
+            { syntax: 'Method[isStatic=true]', description: 'Static methods' },
+            { syntax: 'Relationship[relationType="ASSOCIATION"]', description: 'Associations' }
+        ]
+    },
+    {
+        category: 'Children ( > )',
+        entries: [
+            { syntax: 'Class > Attribute', description: 'Classes that have attributes' },
+            { syntax: 'Class > Method', description: 'Classes that have methods' },
+            { syntax: 'Class > Attribute > Method', description: 'Classes with both' },
+            { syntax: 'Class[name="Foo"] > Attribute[isDerived=true]', description: 'Foo with derived attributes' }
+        ]
+    },
+    {
+        category: 'Relationships',
+        entries: [
+            { syntax: 'Relationship[source=Class[name="Foo"]]', description: 'Edges from class Foo' },
+            { syntax: 'Relationship[target=Class[name="Bar"]]', description: 'Edges to class Bar' },
+            { syntax: 'Relationship[sourceAggregation="NONE"]', description: 'By aggregation type' }
+        ]
+    },
+    {
+        category: 'Operators',
+        entries: [
+            { syntax: '=', description: 'Equals (strings)' },
+            { syntax: '~', description: 'Contains (partial match)' },
+            { syntax: '==', description: 'Exact equals for boolean filters' }
+        ]
+    }
+];
+
+function getBadgeClass(type: string): string {
+    const t = type.toLowerCase();
+    if (t === 'class' || t === 'abstractclass') return 'result-item__tag--class';
+    if (t === 'property' || t === 'attribute') return 'result-item__tag--attribute';
+    if (t === 'operation' || t === 'method') return 'result-item__tag--method';
+    if (
+        [
+            'association',
+            'aggregation',
+            'composition',
+            'generalization',
+            'dependency',
+            'abstraction',
+            'usage',
+            'realization',
+            'interfacerealization',
+            'substitution',
+            'packageimport',
+            'packagemerge'
+        ].includes(t)
+    )
+        return 'result-item__tag--relationship';
+    return 'result-item__tag--default';
+}
+
+// SVG preview extraction (diagram thumbnails for results)
 
 interface Bounds {
     x: number;
@@ -24,13 +102,17 @@ interface Bounds {
 }
 
 interface ExtractedElement {
-    /** Raw `<g>` markup, without the shared <defs> prepended. */
     markup: string;
-    /** Present for nodes (derived from a child <rect>); absent for edges and nested labels. */
     bounds?: Bounds;
-    /** For bounds-less children (e.g. a property): the nearest bounds-aware ancestor (the class). */
     ancestorId?: string;
 }
+
+interface DiagramSvgData {
+    defs: string;
+    byId: Map<string, ExtractedElement>;
+}
+
+const EMPTY_SVG_DATA: DiagramSvgData = { defs: '', byId: new Map() };
 
 /** Sprotty prefixes element IDs (e.g. "uml-diagram_0_<semanticId>"); take the last segment. */
 function semanticIdOf(elementId: string): string {
@@ -53,14 +135,6 @@ function findBoundedAncestorId(group: Element): string | undefined {
     return undefined;
 }
 
-interface DiagramSvgData {
-    /** Shared <defs> (markers, gradients, etc.), prepended once when assembling a preview. */
-    defs: string;
-    byId: Map<string, ExtractedElement>;
-}
-
-const EMPTY_SVG_DATA: DiagramSvgData = { defs: '', byId: new Map() };
-
 /**
  * Parse the full diagram SVG and extract per-element `<g>` subtrees by their ID.
  * Sprotty assigns element IDs to `<g>` groups in the rendered SVG. Nodes carry bounds
@@ -68,7 +142,6 @@ const EMPTY_SVG_DATA: DiagramSvgData = { defs: '', byId: new Map() };
  */
 function extractElementsFromSvg(fullSvg: string): DiagramSvgData {
     const byId = new Map<string, ExtractedElement>();
-
     const parser = new DOMParser();
     const doc = parser.parseFromString(fullSvg, 'image/svg+xml');
 
@@ -83,7 +156,6 @@ function extractElementsFromSvg(fullSvg: string): DiagramSvgData {
         if (!elementId) {
             continue;
         }
-
         const rawBounds = parseSprottyBounds(group);
         const bounds = rawBounds && rawBounds.width > 0 && rawBounds.height > 0 ? rawBounds : undefined;
         const markup = serializer.serializeToString(group);
@@ -118,7 +190,6 @@ function unionBounds(a: Bounds, b: Bounds): Bounds {
 function highlightDescendant(markup: string, childId: string): string {
     const doc = new DOMParser().parseFromString(`<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>`, 'image/svg+xml');
     const root = doc.documentElement;
-
     const target = root.querySelector(`[id="${childId}"], [id$="_${childId}"]`);
     if (target) {
         target.querySelectorAll('text, tspan').forEach(textEl => {
@@ -127,7 +198,6 @@ function highlightDescendant(markup: string, childId: string): string {
             style.setProperty('font-weight', 'bold', 'important');
         });
     }
-
     return root.firstElementChild ? new XMLSerializer().serializeToString(root.firstElementChild) : markup;
 }
 
@@ -157,7 +227,6 @@ function buildPreview(item: SearchResult, data: DiagramSvgData): { svg: string; 
     if (own?.bounds) {
         return { svg: data.defs + own.markup, bounds: own.bounds };
     }
-
     if (own?.ancestorId) {
         const ancestor = data.byId.get(own.ancestorId);
         if (ancestor?.bounds) {
@@ -173,13 +242,11 @@ function buildPreview(item: SearchResult, data: DiagramSvgData): { svg: string; 
  * Size comes from the first child `<rect>` with width/height attributes.
  */
 function parseSprottyBounds(group: Element): { x: number; y: number; width: number; height: number } | undefined {
-    // Parse translate(x, y) from transform attribute
     const transform = group.getAttribute('transform') ?? '';
     const translateMatch = transform.match(/translate\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)/);
     const x = translateMatch ? parseFloat(translateMatch[1]) : 0;
     const y = translateMatch ? parseFloat(translateMatch[2]) : 0;
 
-    // Find the first <rect> child for dimensions
     const rect = group.querySelector('rect');
     if (rect) {
         const width = parseFloat(rect.getAttribute('width') ?? '0');
@@ -188,18 +255,25 @@ function parseSprottyBounds(group: Element): { x: number; y: number; width: numb
             return { x, y, width, height };
         }
     }
-
     return undefined;
 }
 
+// ---------------------------------------------------------------------------
+// Component
+// ---------------------------------------------------------------------------
+
 export function AdvancedSearch(): ReactElement {
     const { clientId, dispatchAction, listenAction } = useContext(VSCodeContext);
+
     const [query, setQuery] = useState('');
     const [results, setResults] = useState<SearchResult[]>([]);
+    const [showCheatsheet, setShowCheatsheet] = useState(false);
+
     const [fullDiagramSvg, setFullDiagramSvg] = useState<string | undefined>();
     const [loading, setLoading] = useState(false);
     const [showAllPreviews, setShowAllPreviews] = useState(false);
     const [hoveredIdx, setHoveredIdx] = useState<number | null>(null);
+
     const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const fireSearch = (value: string) => {
@@ -253,28 +327,34 @@ export function AdvancedSearch(): ReactElement {
 
     useEffect(() => {
         const handler = (action: unknown) => {
-            if (!AdvancedSearchActionResponse.is(action)) {
+            if (AdvancedSearchActionResponse.is(action)) {
+                // Background SVG export status — just toggle the loading indicator, keep current results.
+                if (action.exportInFlight !== undefined) {
+                    setLoading(action.exportInFlight);
+                    return;
+                }
+
+                // Normal results update
+                setResults(action.results);
+                applyDiagramHighlighting(action.results.map(r => r.id).filter(Boolean));
+
+                const svg = action.fullDiagramSvg;
+                if (svg) {
+                    setFullDiagramSvg(svg);
+                } else if (action.results.length === 0) {
+                    setFullDiagramSvg(undefined);
+                }
+
+                // Loading while results exist but their SVG hasn't arrived yet.
+                setLoading(action.results.length > 0 && !svg);
                 return;
             }
 
-            // Background SVG export status — just toggle the loading indicator, keep current results.
-            if (action.exportInFlight !== undefined) {
-                setLoading(action.exportInFlight);
-                return;
+            if (HighlightElementActionResponse.is(action)) {
+                if (action.ok) {
+                    return;
+                }
             }
-
-            // Normal results update
-            setResults(action.results);
-            applyDiagramHighlighting(action.results.map(r => r.id).filter(Boolean));
-
-            const svg = action.fullDiagramSvg;
-            if (svg) {
-                setFullDiagramSvg(svg);
-            } else if (action.results.length === 0) {
-                setFullDiagramSvg(undefined);
-            }
-            // Loading while results exist but their SVG hasn't arrived yet.
-            setLoading(action.results.length > 0 && !svg);
         };
         listenAction(handler);
 
@@ -287,17 +367,30 @@ export function AdvancedSearch(): ReactElement {
         };
     }, [listenAction, applyDiagramHighlighting]);
 
+    const hasResults = results.length > 0;
+    const isSearching = query.trim().length > 0;
+
     return (
         <div className='advanced-search'>
             <div className='advanced-search__controls'>
                 <BTextfield
                     className='advanced-search__text'
                     value={query}
-                    placeholder='e.g. Class:User*'
+                    placeholder='e.g. Class[name="Foo"] or Class > Attribute'
                     onInput={e => fireSearch((e.target as HTMLInputElement).value)}
                 >
                     <span slot='end' className='codicon codicon-search' />
                 </BTextfield>
+
+                <button
+                    className='advanced-search__cheatsheet-toggle'
+                    onClick={() => setShowCheatsheet(prev => !prev)}
+                    title='Query syntax reference'
+                >
+                    <span className={`codicon codicon-${showCheatsheet ? 'chevron-up' : 'question'}`} />
+                    {showCheatsheet ? ' Hide syntax' : ' Syntax help'}
+                </button>
+
                 <BCheckbox
                     className='advanced-search__preview-toggle'
                     label='Show all previews'
@@ -306,10 +399,32 @@ export function AdvancedSearch(): ReactElement {
                 />
             </div>
 
+            {showCheatsheet && (
+                <div className='advanced-search__cheatsheet'>
+                    <p className='cheatsheet__intro'>Use structured queries to find elements by type, properties, and relationships.</p>
+                    {CHEATSHEET.map(section => (
+                        <div key={section.category} className='cheatsheet__section'>
+                            <div className='cheatsheet__category'>{section.category}</div>
+                            {section.entries.map((entry, idx) => (
+                                <div
+                                    key={idx}
+                                    className='cheatsheet__entry'
+                                    onClick={() => fireSearch(entry.syntax)}
+                                    title='Click to use this query'
+                                >
+                                    <code className='cheatsheet__syntax'>{entry.syntax}</code>
+                                    <span className='cheatsheet__desc'>{entry.description}</span>
+                                </div>
+                            ))}
+                        </div>
+                    ))}
+                </div>
+            )}
+
             {showAllPreviews && loading && <div className='advanced-search__svg-loading-bar' />}
 
             <div>
-                {results.length > 0 ? (
+                {hasResults ? (
                     <ul className='advanced-search__results'>
                         {results.map((item, idx) => {
                             const preview = buildPreview(item, svgData);
@@ -322,7 +437,7 @@ export function AdvancedSearch(): ReactElement {
                                     onMouseLeave={() => setHoveredIdx(null)}
                                 >
                                     <div className='result-item__header'>
-                                        <BBadge className='result-item__tag'>{item.type}</BBadge>
+                                        <span className={`result-item__tag ${getBadgeClass(item.type)}`}>{item.type}</span>
                                         <span className='result-item__name'>{item.name}</span>
                                     </div>
                                     {item.parentName && <div className='result-item__details'>in {item.parentName}</div>}
@@ -334,9 +449,9 @@ export function AdvancedSearch(): ReactElement {
                             );
                         })}
                     </ul>
-                ) : showAllPreviews && loading ? null : (
-                    <p>No results found.</p>
-                )}
+                ) : isSearching ? (
+                    <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>
+                ) : null}
             </div>
         </div>
     );
