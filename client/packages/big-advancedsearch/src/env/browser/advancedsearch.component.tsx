@@ -12,10 +12,26 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, type Rea
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
+import { FILTER_SPECS } from '../common/search-filter-spec.js';
 
+import type { SearchFilterSpec } from '../common/search-filter-spec.js';
 import type { SearchResult } from '../common/searchresult.js';
 import { SearchResultThumbnail } from './search-result-thumbnail.component.js';
 
+type QueryableFilter = SearchFilterSpec;
+
+const QUERYABLE_FILTERS: QueryableFilter[] = FILTER_SPECS;
+
+function getFilterValueHint(filter: QueryableFilter): string {
+    switch (filter.valueType) {
+        case 'boolean':
+            return 'boolean: true or false';
+        case 'number':
+            return 'number';
+        default:
+            return `string: ${filter.key}="value"`;
+    }
+}
 
 const CHEATSHEET = [
     {
@@ -24,7 +40,7 @@ const CHEATSHEET = [
             { syntax: 'Class', description: 'All classes' },
             { syntax: 'Attribute', description: 'All attributes' },
             { syntax: 'Method', description: 'All methods' },
-            { syntax: 'Relationship', description: 'All relationships' }
+            { syntax: 'Relationship', description: 'All relationships (relation)' }
         ]
     },
     {
@@ -35,7 +51,7 @@ const CHEATSHEET = [
             { syntax: 'Class[isAbstract=true]', description: 'Abstract classes' },
             { syntax: 'Class[visibility="PUBLIC"]', description: 'Public classes' },
             { syntax: 'Attribute[isDerived=true]', description: 'Derived attributes' },
-            { syntax: 'Attribute[type="String"]', description: 'Attributes of type String' },
+            { syntax: 'Attribute[propertyType="String"]', description: 'Attributes of type String' },
             { syntax: 'Method[isStatic=true]', description: 'Static methods' },
             { syntax: 'Relationship[relationType="ASSOCIATION"]', description: 'Associations' }
         ]
@@ -45,7 +61,7 @@ const CHEATSHEET = [
         entries: [
             { syntax: 'Class > Attribute', description: 'Classes that have attributes' },
             { syntax: 'Class > Method', description: 'Classes that have methods' },
-            { syntax: 'Class > Attribute > Method', description: 'Classes with both' },
+            { syntax: 'Class > Method > Parameter', description: 'Classes with methods that have parameters. A class that has a method that has a parameter' },
             { syntax: 'Class[name="Foo"] > Attribute[isDerived=true]', description: 'Foo with derived attributes' }
         ]
     },
@@ -60,9 +76,8 @@ const CHEATSHEET = [
     {
         category: 'Operators',
         entries: [
-            { syntax: '=', description: 'Equals (strings)' },
-            { syntax: '~', description: 'Contains (partial match)' },
-            { syntax: '==', description: 'Exact equals for boolean filters' }
+            { syntax: '=', description: 'Equals' },
+            { syntax: '~', description: 'Contains (partial match)' }
         ]
     }
 ];
@@ -401,7 +416,7 @@ export function AdvancedSearch(): ReactElement {
 
             {showCheatsheet && (
                 <div className='advanced-search__cheatsheet'>
-                    <p className='cheatsheet__intro'>Use structured queries to find elements by type, properties, and relationships.</p>
+                    <p className='cheatsheet__intro'>Use structured queries to find elements by type, properties, and relationships. The search is case-insensitive.</p>
                     {CHEATSHEET.map(section => (
                         <div key={section.category} className='cheatsheet__section'>
                             <div className='cheatsheet__category'>{section.category}</div>
@@ -418,6 +433,22 @@ export function AdvancedSearch(): ReactElement {
                             ))}
                         </div>
                     ))}
+
+                    <div className='cheatsheet__section cheatsheet__filter-reference'>
+                        <div className='cheatsheet__category'>Queryable parameters</div>
+                        <p className='cheatsheet__intro'>
+                            A parameter can only be used with the element types listed below. All current filters use equality by default;
+                            quote string values and use <code>true</code> or <code>false</code> for booleans.
+                        </p>
+                        {QUERYABLE_FILTERS.map(filter => (
+                            <div key={filter.key} className='cheatsheet__entry cheatsheet__filter-entry'>
+                                <code className='cheatsheet__syntax'>{filter.key}</code>
+                                <span className='cheatsheet__desc'>
+                                    {getFilterValueHint(filter)} · {filter.scopes.join(', ')}
+                                </span>
+                            </div>
+                        ))}
+                    </div>
                 </div>
             )}
 
