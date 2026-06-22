@@ -37,25 +37,57 @@ function computeNewValue(oldValue: string | undefined, find: string, replaceWith
 // Properties whose AST values are drawn from a fixed set. The UI renders these
 // as dropdowns instead of free-text inputs. Values are uppercased to match the
 // langium AST literals (see `Visibility` in uml-model-server/.../ast.ts).
-const ENUM_PROPERTY_VALUES: Record<string, readonly string[]> = {
-    visibility: ['PUBLIC', 'PRIVATE', 'PROTECTED', 'PACKAGE']
-};
+type PropertyInputType = 'text' | 'select';
 
-const PROPERTY_LABELS: Record<string, string> = {
-    name: 'Name',
-    visibility: 'Visibility'
+interface PropertyConfig {
+    label: string;
+    inputType: PropertyInputType;
+    values?: readonly string[];
+    dynamicValues?: boolean;
+}
+
+const PROPERTY_CONFIG: Record<string, PropertyConfig> = {
+    name: {
+        label: 'Name',
+        inputType: 'text'
+    },
+    value: {
+        label: 'Value',
+        inputType: 'text'
+    },
+    visibility: {
+        label: 'Visibility',
+        inputType: 'select',
+        values: ['PUBLIC', 'PRIVATE', 'PROTECTED', 'PACKAGE'],
+        dynamicValues: true
+    },
+    aggregation: {
+        label: 'Aggregation',
+        inputType: 'select',
+        values: ['NONE', 'SHARED', 'COMPOSITE'],
+        dynamicValues: true
+    },
+    concurrency: {
+        label: 'Concurrency',
+        inputType: 'select',
+        values: ['SEQUENTIAL', 'GUARDED', 'CONCURRENT'],
+        dynamicValues: true
+    },
 };
 
 // Model-change notifications arriving within this window after a replace are
 // attributed to the replace itself and must not retire its status/Undo button.
 const REPLACE_STATUS_GRACE_MS = 2000;
 
-function isEnumProperty(prop: string): boolean {
-    return prop in ENUM_PROPERTY_VALUES;
+function getPropertyConfig(prop: string): PropertyConfig {
+    return PROPERTY_CONFIG[prop] ?? {
+        label: prop,
+        inputType: 'text'
+    };
 }
 
 function propertyLabel(prop: string): string {
-    return PROPERTY_LABELS[prop] ?? prop;
+    return getPropertyConfig(prop).label;
 }
 
 function getCurrentValue(r: SearchResult, prop: string): string | undefined {
@@ -123,14 +155,47 @@ export function AdvancedSearch(): ReactElement {
     // row publishes it); other entries come from whatever results expose.
     const availableProperties = useMemo(() => {
         const set = new Set<string>(['name']);
+
         for (const r of results) {
             if (r.properties) {
                 for (const k of Object.keys(r.properties)) set.add(k);
             }
         }
-        set.add(selectedProperty);
+
         return Array.from(set);
-    }, [results, selectedProperty]);
+    }, [results]);
+
+    const availablePropertyValues = useMemo(() => {
+        const map = new Map<string, string[]>();
+
+        for (const r of results) {
+            if (!r.properties) continue;
+
+            for (const [key, value] of Object.entries(r.properties)) {
+                if (!map.has(key)) {
+                    map.set(key, []);
+                }
+
+                const values = map.get(key)!;
+
+                if (!values.includes(value)) {
+                    values.push(value);
+                }
+            }
+        }
+
+        return map;
+    }, [results]);
+
+    useEffect(() => {
+        if (!availableProperties.includes(selectedProperty)) {
+            setSelectedProperty('name');
+            setFindOverride('');
+            setReplaceWith('');
+            setOutcomes(new Map());
+            setReplaceStatus(undefined);
+        }
+    }, [availableProperties, selectedProperty]);
 
     const onPropertyChange = (next: string) => {
         setSelectedProperty(next);
@@ -309,9 +374,9 @@ export function AdvancedSearch(): ReactElement {
                     const detail =
                         erroredRows.length > 0
                             ? `${erroredRows.length} error${erroredRows.length !== 1 ? 's' : ''}: ${erroredRows
-                                  .slice(0, 3)
-                                  .map(r => r.error ?? 'unknown')
-                                  .join('; ')}`
+                                .slice(0, 3)
+                                .map(r => r.error ?? 'unknown')
+                                .join('; ')}`
                             : undefined;
                     setReplaceStatus({
                         ok: true,
@@ -341,14 +406,24 @@ export function AdvancedSearch(): ReactElement {
 
     const hasResults = results.length > 0;
     const isSearching = query.trim().length > 0;
+    const selectedPropertyConfig = getPropertyConfig(selectedProperty);
+    const selectedFindValues =
+        selectedPropertyConfig.dynamicValues
+            ? availablePropertyValues.get(selectedProperty) ?? []
+            : selectedPropertyConfig.values ?? [];
+
+    const selectedReplaceValues =
+        selectedPropertyConfig.values ??
+        availablePropertyValues.get(selectedProperty) ??
+        [];
 
     return (
         <div className='advanced-search'>
             <div className='advanced-search__controls'>
                 <div className='advanced-search__search-row'>
-                    <button
+                    <button disabled={!hasResults}
                         type='button'
-                        className={`advanced-search__toggle ${replaceOpen ? 'advanced-search__toggle--open' : ''}`}
+                        className={`advanced-search__toggle ${hasResults ? '' : 'disable-btn'} ${replaceOpen ? 'advanced-search__toggle--open' : ''}`}
                         title={replaceOpen ? 'Hide replace' : 'Show replace'}
                         aria-expanded={replaceOpen}
                         aria-label='Toggle replace'
@@ -356,6 +431,7 @@ export function AdvancedSearch(): ReactElement {
                     >
                         <span className={`codicon codicon-chevron-${replaceOpen ? 'down' : 'right'}`} />
                     </button>
+
                     <BTextfield
                         className='advanced-search__text'
                         value={query}
@@ -366,7 +442,7 @@ export function AdvancedSearch(): ReactElement {
                     </BTextfield>
                 </div>
 
-                {replaceOpen && (
+                {replaceOpen && hasResults && (
                     <div className='advanced-search__replace-block'>
                         <div className='advanced-search__property-row'>
                             <label className='advanced-search__property-field'>
@@ -386,13 +462,14 @@ export function AdvancedSearch(): ReactElement {
                             {selectedProperty !== 'name' && (
                                 <label className='advanced-search__property-field advanced-search__property-field--grow'>
                                     <span className='advanced-search__property-label'>Find</span>
-                                    {isEnumProperty(selectedProperty) ? (
+
+                                    {selectedPropertyConfig.inputType === 'select' ? (
                                         <BSingleSelect
                                             value={findOverride}
                                             onChange={(e: any) => setFindOverride((e.target as HTMLSelectElement).value)}
                                         >
                                             <BOption value=''>—</BOption>
-                                            {ENUM_PROPERTY_VALUES[selectedProperty].map(v => (
+                                            {selectedFindValues.map(v => (
                                                 <BOption key={v} value={v}>
                                                     {v}
                                                 </BOption>
@@ -419,14 +496,14 @@ export function AdvancedSearch(): ReactElement {
                             >
                                 <span className='codicon codicon-case-sensitive' />
                             </button>
-                            {isEnumProperty(selectedProperty) ? (
+                            {selectedPropertyConfig.inputType === 'select' ? (
                                 <BSingleSelect
                                     className='advanced-search__text'
                                     value={replaceWith}
                                     onChange={(e: any) => setReplaceWith((e.target as HTMLSelectElement).value)}
                                 >
                                     <BOption value=''>Replace with…</BOption>
-                                    {ENUM_PROPERTY_VALUES[selectedProperty].map(v => (
+                                    {selectedReplaceValues.map(v => (
                                         <BOption key={v} value={v}>
                                             {v}
                                         </BOption>
@@ -452,8 +529,8 @@ export function AdvancedSearch(): ReactElement {
                                             ? 'Add a name filter (e.g. Class[name~"User"]) to enable replace'
                                             : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find`
                                         : willChangeCount === 0
-                                          ? 'No included row would change'
-                                          : `Replace ${willChangeCount} element${willChangeCount !== 1 ? 's' : ''}`
+                                            ? 'No included row would change'
+                                            : `Replace ${willChangeCount} element${willChangeCount !== 1 ? 's' : ''}`
                                 }
                             >
                                 Replace All
@@ -561,21 +638,19 @@ export function AdvancedSearch(): ReactElement {
                                         </span>
                                         {replaceOpen && outcome && (
                                             <span
-                                                className={`result-item__outcome result-item__outcome--${
-                                                    !outcome.success ? 'error' : outcome.changed ? 'changed' : 'noop'
-                                                }`}
+                                                className={`result-item__outcome result-item__outcome--${!outcome.success ? 'error' : outcome.changed ? 'changed' : 'noop'
+                                                    }`}
                                                 title={
                                                     !outcome.success
                                                         ? outcome.error ?? 'Replace failed'
                                                         : outcome.changed
-                                                          ? `Replaced: ${outcome.oldValue} → ${outcome.newValue}`
-                                                          : 'No change'
+                                                            ? `Replaced: ${outcome.oldValue} → ${outcome.newValue}`
+                                                            : 'No change'
                                                 }
                                             >
                                                 <span
-                                                    className={`codicon codicon-${
-                                                        !outcome.success ? 'error' : outcome.changed ? 'check' : 'dash'
-                                                    }`}
+                                                    className={`codicon codicon-${!outcome.success ? 'error' : outcome.changed ? 'check' : 'dash'
+                                                        }`}
                                                 />
                                             </span>
                                         )}
@@ -589,12 +664,12 @@ export function AdvancedSearch(): ReactElement {
                                                             ? 'Add a name filter (e.g. Class[name~"User"]) to enable replace'
                                                             : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find`
                                                         : willChange
-                                                          ? `Replace this element: ${preview?.current ?? item.name} → ${preview?.newValue}`
-                                                          : preview?.invalid
-                                                            ? 'Replacement would clear the value'
-                                                            : preview?.current === undefined
-                                                              ? `This element has no ${propertyLabel(selectedProperty).toLowerCase()} property`
-                                                              : 'No change in this element'
+                                                            ? `Replace this element: ${preview?.current ?? item.name} → ${preview?.newValue}`
+                                                            : preview?.invalid
+                                                                ? 'Replacement would clear the value'
+                                                                : preview?.current === undefined
+                                                                    ? `This element has no ${propertyLabel(selectedProperty).toLowerCase()} property`
+                                                                    : 'No change in this element'
                                                 }
                                                 disabled={findPattern === '' || !willChange}
                                                 onClick={e => {
@@ -615,7 +690,7 @@ export function AdvancedSearch(): ReactElement {
                 ) : isSearching ? (
                     searchError ? (
                         <p className='advanced-search__empty advanced-search__empty--error'>
-                            <span className='codicon codicon-warning' /> Could not parse query: {searchError}
+                            <span className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</span>
                         </p>
                     ) : (
                         <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>

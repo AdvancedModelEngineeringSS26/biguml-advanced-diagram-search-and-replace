@@ -31,7 +31,7 @@
 
 .advanced-search__search-row .advanced-search__text {
     flex: 1 1 auto;
-}
+} 
 
 .advanced-search__toggle {
     flex: 0 0 auto;
@@ -354,4 +354,9 @@
     align-items: baseline;
     gap: 0.35rem;
     color: var(--vscode-errorForeground, #f48771);
+}
+
+.disable-btn {
+    opacity: 0.5;
+    cursor: not-allowed;
 }
