@@ -196,7 +196,9 @@ export class ClassDiagramMatcher implements IMatcher {
                 type,
                 name: relationName,
                 details: `${type} from ${sourceName} to ${targetName}`,
-                properties: this.extractProperties(relation)
+                properties: this.extractProperties(relation),
+                sourceId,
+                targetId
             });
         }
     }

@@ -19,7 +19,8 @@ export type SearchElementType =
     | 'PrimitiveType'
     | 'Package'
     | 'InstanceSpecification'
-    | 'Slot';
+    | 'Slot'
+    | 'Parameter';
 
 export type SearchOperator = 'equals' | 'contains' | 'startsWith' | 'endsWith' | 'greaterThan' | 'lessThan';
 

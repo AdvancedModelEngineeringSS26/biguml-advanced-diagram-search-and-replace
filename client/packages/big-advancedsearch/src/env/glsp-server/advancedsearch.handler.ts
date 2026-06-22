@@ -8,7 +8,7 @@
  **********************************************************************************/
 
 import type { DiagramModelState } from '@borkdominik-biguml/uml-glsp-server/vscode';
-import { SelectAction, SelectAllAction } from '@eclipse-glsp/protocol';
+import { FitToScreenAction, SelectAction, SelectAllAction } from '@eclipse-glsp/protocol';
 import { ModelState, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
@@ -81,9 +81,13 @@ export class AdvancedSearchActionHandler implements ActionHandler {
 
     protected handleHighlight(action: RequestHighlightElementAction): any[] {
         const uri = action.semanticUri;
+        // Edges aren't bounds-aware, so fitting to a relation's own id does nothing.
+        // Relations pass their endpoint ids here so we fit to the connected nodes instead.
+        const fitIds = action.fitElementIds?.length ? action.fitElementIds : [uri];
         return [
             SelectAllAction.create(false),
             SelectAction.create({ selectedElementsIDs: [uri] }),
+            FitToScreenAction.create(fitIds, { maxZoom: 1, padding: 50, animate: true }),
             HighlightElementActionResponse.create({ ok: true })
         ];
     }

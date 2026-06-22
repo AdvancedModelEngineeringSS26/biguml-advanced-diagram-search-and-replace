@@ -6,6 +6,7 @@
  *
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
+import { MinimapExportSvgAction, RequestMinimapExportSvgAction } from '@borkdominik-biguml/big-minimap';
 import type { WebviewMessenger, WebviewViewProviderOptions } from '@borkdominik-biguml/big-vscode/vscode';
 import {
     type ActionDispatcher,
@@ -22,6 +23,7 @@ import { type Disposable } from 'vscode';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { ModelChangedNotification } from '../common/model-change.notification.js';
 import { ReplaceActionResponse } from '../common/replace.action.js';
+import type { SearchResult } from '../common/searchresult.js';
 import { UndoNotification } from '../common/undo.notification.js';
 
 @injectable()
@@ -36,6 +38,10 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected readonly actionDispatcher: ActionDispatcher;
 
     protected actionCache: CacheActionListener;
+    protected currentDiagramSvg: string | undefined;
+    protected pendingSearchResults: SearchResult[] | undefined;
+    protected svgExportInFlight = false;
+    protected lastQuery = '';
 
     constructor(@inject(TYPES.WebviewViewOptions) options: WebviewViewProviderOptions) {
         super({
@@ -54,20 +60,91 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected init(): void {
         this.actionCache = this.actionListener.createCache([AdvancedSearchActionResponse.KIND, ReplaceActionResponse.KIND]);
         this.toDispose.push(this.actionCache);
+
+        this.toDispose.push(
+            this.connector.onClientActionMessage(message => {
+                if (MinimapExportSvgAction.is(message.action)) {
+                    const { svg } = message.action as MinimapExportSvgAction;
+                    this.currentDiagramSvg = svg;
+                    this.svgExportInFlight = false;
+
+                    if (this.pendingSearchResults) {
+                        this.actionMessenger.dispatch(
+                            AdvancedSearchActionResponse.create({
+                                results: this.pendingSearchResults,
+                                fullDiagramSvg: svg
+                            })
+                        );
+                        this.pendingSearchResults = undefined;
+                    } else {
+                        // Prefetch complete with no pending search — tell browser to clear the loading indicator
+                        this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: false }));
+                    }
+                }
+            })
+        );
     }
 
     protected override resolveWebviewProtocol(messenger: WebviewMessenger): Disposable {
         const disposables = new DisposableCollection();
         disposables.push(
             super.resolveWebviewProtocol(messenger),
-            this.actionCache.onDidChange(message => this.actionMessenger.dispatch(message)),
-            this.connectionManager.onDidActiveClientChange(() => this.requestModel()),
-            this.connectionManager.onNoActiveClient(() => this.actionMessenger.dispatch(AdvancedSearchActionResponse.create())),
-            this.connectionManager.onNoConnection(() => this.actionMessenger.dispatch(AdvancedSearchActionResponse.create())),
-            // Tell the webview the model changed and let it re-run its CURRENT
-            // query. Requesting an empty-query search from here clobbered the
-            // user's filtered results with the full element list on every edit.
-            this.modelState.onDidChangeModelState(() => messenger.sendNotification(ModelChangedNotification.TYPE, undefined)),
+            this.actionMessenger.onActionMessage(message => {
+                if (RequestAdvancedSearchAction.is(message.action)) {
+                    this.lastQuery = message.action.query;
+                }
+            }),
+            this.actionCache.onDidChange(message => {
+                if (AdvancedSearchActionResponse.is(message.action) && message.action.results.length > 0) {
+                    const results = message.action.results;
+
+                    if (this.currentDiagramSvg) {
+                        this.actionMessenger.dispatch(
+                            AdvancedSearchActionResponse.create({
+                                results,
+                                fullDiagramSvg: this.currentDiagramSvg
+                            })
+                        );
+                    } else {
+                        this.actionMessenger.dispatch(message);
+                        this.pendingSearchResults = results.map(r => ({ ...r }));
+                        this.prefetchSvg();
+                    }
+                } else {
+                    this.actionMessenger.dispatch(message);
+                }
+            }),
+            this.connectionManager.onDidActiveClientChange(() => {
+                this.currentDiagramSvg = undefined;
+                this.svgExportInFlight = false;
+                this.pendingSearchResults = undefined;
+                this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
+                this.prefetchSvg();
+                this.requestModel();
+            }),
+            this.connectionManager.onNoActiveClient(() => {
+                this.currentDiagramSvg = undefined;
+                this.svgExportInFlight = false;
+                this.pendingSearchResults = undefined;
+                this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
+            }),
+            this.connectionManager.onNoConnection(() => {
+                this.currentDiagramSvg = undefined;
+                this.svgExportInFlight = false;
+                this.pendingSearchResults = undefined;
+                this.actionMessenger.dispatch(AdvancedSearchActionResponse.create());
+            }),
+            this.modelState.onDidChangeModelState(() => {
+                // Refresh the cached diagram SVG so thumbnails reflect the new model.
+                this.currentDiagramSvg = undefined;
+                this.svgExportInFlight = false;
+                this.pendingSearchResults = undefined;
+                this.prefetchSvg();
+                // Tell the webview the model changed and let it re-run its CURRENT
+                // query (and retire any post-replace status / Undo). Requesting a
+                // search from here would clobber the user's filtered results.
+                messenger.sendNotification(ModelChangedNotification.TYPE, undefined);
+            }),
             // UndoAction is a client-side GLSP action — must be routed to the
             // active GLSP client (the diagram webview), which then sends an
             // UndoOperation to the server. Dispatching it via the server-side
@@ -85,19 +162,24 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     }
 
     protected override handleOnReady(): void {
+        this.prefetchSvg();
         this.requestModel();
         this.actionMessenger.dispatch(this.actionCache.getActions());
+    }
+
+    protected requestModel(): void {
+        this.actionDispatcher.dispatch(RequestAdvancedSearchAction.create({ query: this.lastQuery }));
     }
 
     protected override handleOnVisible(): void {
         this.actionMessenger.dispatch(this.actionCache.getActions());
     }
 
-    protected requestModel(): void {
-        this.actionDispatcher.dispatch(
-            RequestAdvancedSearchAction.create({
-                query: ''
-            })
-        );
+    protected prefetchSvg(): void {
+        if (!this.currentDiagramSvg && !this.svgExportInFlight && this.connectionManager.hasActiveClient()) {
+            this.svgExportInFlight = true;
+            this.connector.sendActionToActiveClient(RequestMinimapExportSvgAction.create());
+            this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: true }));
+        }
     }
 }
