@@ -421,9 +421,9 @@ export function AdvancedSearch(): ReactElement {
         <div className='advanced-search'>
             <div className='advanced-search__controls'>
                 <div className='advanced-search__search-row'>
-                    <button
+                    <button disabled={!hasResults}
                         type='button'
-                        className={`advanced-search__toggle ${replaceOpen ? 'advanced-search__toggle--open' : ''}`}
+                        className={`advanced-search__toggle ${hasResults ? '' : 'disable-btn'} ${replaceOpen ? 'advanced-search__toggle--open' : ''}`}
                         title={replaceOpen ? 'Hide replace' : 'Show replace'}
                         aria-expanded={replaceOpen}
                         aria-label='Toggle replace'
@@ -431,6 +431,7 @@ export function AdvancedSearch(): ReactElement {
                     >
                         <span className={`codicon codicon-chevron-${replaceOpen ? 'down' : 'right'}`} />
                     </button>
+
                     <BTextfield
                         className='advanced-search__text'
                         value={query}
@@ -441,7 +442,7 @@ export function AdvancedSearch(): ReactElement {
                     </BTextfield>
                 </div>
 
-                {replaceOpen && (
+                {replaceOpen && hasResults && (
                     <div className='advanced-search__replace-block'>
                         <div className='advanced-search__property-row'>
                             <label className='advanced-search__property-field'>
@@ -689,7 +690,7 @@ export function AdvancedSearch(): ReactElement {
                 ) : isSearching ? (
                     searchError ? (
                         <p className='advanced-search__empty advanced-search__empty--error'>
-                            <span className='codicon codicon-warning' /> Could not parse query: {searchError}
+                            <span className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</span>
                         </p>
                     ) : (
                         <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>
