@@ -16,7 +16,16 @@ export interface SearchFilterSpec {
     valueType: SearchFilterValueType;
     defaultOperator?: SearchFilterOperator;
     aliases?: string[];
+    editable?: boolean;
+    values?: readonly string[];
+    astField?: string;
 }
+
+const VISIBILITY_VALUES = ['PUBLIC', 'PRIVATE', 'PROTECTED', 'PACKAGE'] as const;
+const AGGREGATION_VALUES = ['NONE', 'SHARED', 'COMPOSITE'] as const;
+const CONCURRENCY_VALUES = ['SEQUENTIAL', 'GUARDED', 'CONCURRENT'] as const;
+const PARAMETER_DIRECTION_VALUES = ['IN', 'OUT', 'INOUT', 'RETURN'] as const;
+const EFFECT_TYPE_VALUES = ['CREATE', 'READ', 'UPDATE', 'DELETE'] as const;
 
 export const FILTER_SPECS: SearchFilterSpec[] = [
     {
@@ -37,7 +46,8 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
             'Parameter'
         ],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'visibility',
@@ -53,67 +63,81 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
             'Parameter'
         ],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true,
+        values: VISIBILITY_VALUES
     },
     {
         key: 'isAbstract',
         scopes: ['Class', 'Method', 'DataType'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isActive',
         scopes: ['Class'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isStatic',
         scopes: ['Attribute', 'Method'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isDerived',
         scopes: ['Attribute'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isDerivedUnion',
         scopes: ['Attribute'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isReadOnly',
         scopes: ['Attribute'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isOrdered',
         scopes: ['Attribute', 'Parameter'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isException',
         scopes: ['Parameter'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'isStream',
         scopes: ['Parameter'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'parameterDirection',
         scopes: ['Parameter'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true,
+        values: PARAMETER_DIRECTION_VALUES,
+        astField: 'direction'
     },
     {
         key: 'definingFeature',
@@ -131,19 +155,25 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         key: 'effectType',
         scopes: ['Parameter'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true,
+        values: EFFECT_TYPE_VALUES,
+        astField: 'effect'
     },
     {
         key: 'isUnique',
         scopes: ['Attribute', 'Parameter'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'aggregation',
         scopes: ['Attribute', 'Relationship'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true,
+        values: AGGREGATION_VALUES
     },
     {
         key: 'propertyType',
@@ -155,25 +185,30 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         key: 'isQuery',
         scopes: ['Method'],
         valueType: 'boolean',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'concurrency',
         scopes: ['Method'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true,
+        values: CONCURRENCY_VALUES
     },
     {
         key: 'value',
         scopes: ['EnumerationLiteral'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'uri',
         scopes: ['Package'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true
     },
     {
         key: 'multiplicity',
@@ -203,13 +238,17 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         key: 'sourceAggregation',
         scopes: ['Relationship'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true,
+        values: AGGREGATION_VALUES
     },
     {
         key: 'targetAggregation',
         scopes: ['Relationship'],
         valueType: 'string',
-        defaultOperator: 'equals'
+        defaultOperator: 'equals',
+        editable: true,
+        values: AGGREGATION_VALUES
     },
     {
         key: 'sourceMultiplicity',
@@ -224,3 +263,16 @@ export const FILTER_SPECS: SearchFilterSpec[] = [
         defaultOperator: 'equals'
     }
 ];
+
+export const SPEC_BY_KEY: ReadonlyMap<string, SearchFilterSpec> = new Map(FILTER_SPECS.map(spec => [spec.key, spec]));
+
+export const EDITABLE_SPECS: readonly SearchFilterSpec[] = FILTER_SPECS.filter(spec => spec.editable);
+
+export function astFieldOf(key: string): string {
+    return SPEC_BY_KEY.get(key)?.astField ?? key;
+}
+
+export function isTokenProperty(key: string): boolean {
+    const spec = SPEC_BY_KEY.get(key);
+    return !!spec && (spec.valueType === 'boolean' || (spec.values?.length ?? 0) > 0);
+}
