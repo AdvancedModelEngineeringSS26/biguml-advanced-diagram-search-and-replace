@@ -33,3 +33,11 @@ export function applyReplacement(value: string, searchPattern: string, replaceWi
 export function escapeRegexPattern(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
+
+export function applyExactReplacement(value: string, searchPattern: string, replaceWith: string, caseSensitive?: boolean): string {
+    if (searchPattern === '') {
+        return value;
+    }
+    const matches = caseSensitive ? value === searchPattern : value.toLowerCase() === searchPattern.toLowerCase();
+    return matches ? replaceWith : value;
+}
