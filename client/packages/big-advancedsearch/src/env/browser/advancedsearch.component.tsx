@@ -730,48 +730,50 @@ export function AdvancedSearch(): ReactElement {
 
                 {replaceOpen && hasResults && (
                     <div className='advanced-search__replace-block'>
-                        <div className='advanced-search__property-row'>
-                            <label className='advanced-search__property-field'>
-                                <span className='advanced-search__property-label'>Property</span>
+                        <div className='advanced-search__replace-controls'>
+                            <span className='advanced-search__replace-word'>In</span>
+                            <BSingleSelect
+                                className='advanced-search__property-select'
+                                aria-label='Property to replace'
+                                value={selectedProperty}
+                                onChange={(e: any) => onPropertyChange((e.target as HTMLSelectElement).value)}
+                            >
+                                {availableProperties.map(p => (
+                                    <BOption key={p} value={p}>
+                                        {propertyLabel(p)}
+                                    </BOption>
+                                ))}
+                            </BSingleSelect>
+
+                            {selectedProperty === 'name' ? (
+                                <span className={`advanced-search__find-chip ${findPattern === '' ? 'advanced-search__find-chip--empty' : ''}`}>
+                                    {findPattern === '' ? 'name filter' : findPattern}
+                                </span>
+                            ) : selectedPropertyConfig.inputType === 'select' ? (
                                 <BSingleSelect
-                                    className='advanced-search__property-select'
-                                    value={selectedProperty}
-                                    onChange={(e: any) => onPropertyChange((e.target as HTMLSelectElement).value)}
+                                    className='advanced-search__replace-input'
+                                    aria-label='Value to find'
+                                    value={findOverride}
+                                    onChange={(e: any) => setFindOverride((e.target as HTMLSelectElement).value)}
                                 >
-                                    {availableProperties.map(p => (
-                                        <BOption key={p} value={p}>
-                                            {propertyLabel(p)}
+                                    <BOption value=''>—</BOption>
+                                    {selectedFindValues.map(v => (
+                                        <BOption key={v} value={v}>
+                                            {v}
                                         </BOption>
                                     ))}
                                 </BSingleSelect>
-                            </label>
-                            {selectedProperty !== 'name' && (
-                                <label className='advanced-search__property-field advanced-search__property-field--grow'>
-                                    <span className='advanced-search__property-label'>Find</span>
-
-                                    {selectedPropertyConfig.inputType === 'select' ? (
-                                        <BSingleSelect
-                                            value={findOverride}
-                                            onChange={(e: any) => setFindOverride((e.target as HTMLSelectElement).value)}
-                                        >
-                                            <BOption value=''>—</BOption>
-                                            {selectedFindValues.map(v => (
-                                                <BOption key={v} value={v}>
-                                                    {v}
-                                                </BOption>
-                                            ))}
-                                        </BSingleSelect>
-                                    ) : (
-                                        <BTextfield
-                                            value={findOverride}
-                                            placeholder={`${propertyLabel(selectedProperty)} value to find…`}
-                                            onInput={e => setFindOverride((e.target as HTMLInputElement).value)}
-                                        />
-                                    )}
-                                </label>
+                            ) : (
+                                <BTextfield
+                                    className='advanced-search__replace-input'
+                                    aria-label='Value to find'
+                                    value={findOverride}
+                                    placeholder='find…'
+                                    onInput={e => setFindOverride((e.target as HTMLInputElement).value)}
+                                />
                             )}
-                        </div>
-                        <div className='advanced-search__replace-row'>
+
+                            <span className='advanced-search__replace-arrow codicon codicon-arrow-right' />
                             {selectedPropertyConfig.inputType !== 'select' && (
                                 <button
                                     type='button'
@@ -786,11 +788,11 @@ export function AdvancedSearch(): ReactElement {
                             )}
                             {selectedPropertyConfig.inputType === 'select' ? (
                                 <BSingleSelect
-                                    className='advanced-search__text'
+                                    className='advanced-search__replace-input'
                                     value={replaceWith}
                                     onChange={(e: any) => setReplaceWith((e.target as HTMLSelectElement).value)}
                                 >
-                                    <BOption value=''>Replace with…</BOption>
+                                    <BOption value=''>replace with…</BOption>
                                     {selectedReplaceValues.map(v => (
                                         <BOption key={v} value={v}>
                                             {v}
@@ -799,9 +801,9 @@ export function AdvancedSearch(): ReactElement {
                                 </BSingleSelect>
                             ) : (
                                 <BTextfield
-                                    className='advanced-search__text'
+                                    className='advanced-search__replace-input'
                                     value={replaceWith}
-                                    placeholder='Replace with…'
+                                    placeholder='replace with…'
                                     onInput={e => setReplaceWith((e.target as HTMLInputElement).value)}
                                 >
                                     <span slot='end' className='codicon codicon-replace' />
@@ -824,15 +826,13 @@ export function AdvancedSearch(): ReactElement {
                                 Replace All
                             </BButton>
                         </div>
-                        {hasResults && (
-                            <p className='advanced-search__replace-hint'>
-                                {findPattern === ''
-                                    ? selectedProperty === 'name'
-                                        ? 'Add a name filter (e.g. Class[name~"User"]) to preview changes.'
-                                        : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find.`
-                                    : `Replacing matches of "${findPattern}" in ${propertyLabel(selectedProperty).toLowerCase()} — will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
-                            </p>
-                        )}
+                        <p className='advanced-search__replace-hint'>
+                            {findPattern === ''
+                                ? selectedProperty === 'name'
+                                    ? 'Add a name filter (e.g. Class[name~"User"]) to preview changes.'
+                                    : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find.`
+                                : `Will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
+                        </p>
                     </div>
                 )}
 

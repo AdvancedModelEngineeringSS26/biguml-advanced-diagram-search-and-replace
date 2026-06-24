@@ -87,33 +87,9 @@
     outline-offset: 1px;
 }
 
-.advanced-search__property-row {
-    display: flex;
-    align-items: flex-end;
-    gap: 0.5rem;
-    flex-wrap: wrap;
-}
-
-.advanced-search__property-field {
-    display: flex;
-    flex-direction: column;
-    gap: 0.15rem;
-    min-width: 0;
-}
-
-.advanced-search__property-field--grow {
-    flex: 1 1 auto;
-}
-
-.advanced-search__property-label {
-    font-size: 0.75rem;
-    color: var(--vscode-descriptionForeground, #999);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-}
-
 .advanced-search__property-select {
-    min-width: 8rem;
+    flex: 0 1 auto;
+    min-width: 6rem;
 }
 
 .result-item__prop-preview {
@@ -376,10 +352,47 @@
     gap: 0.4rem;
 }
 
-.advanced-search__replace-row {
+.advanced-search__replace-controls {
     display: flex;
+    flex-wrap: wrap;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
+}
+
+.advanced-search__replace-word {
+    font-size: 0.8rem;
+    color: var(--vscode-descriptionForeground, #999);
+}
+
+.advanced-search__replace-arrow {
+    color: var(--vscode-descriptionForeground, #999);
+}
+
+.advanced-search__replace-input {
+    flex: 1 1 5rem;
+    min-width: 4.5rem;
+}
+
+.advanced-search__find-chip {
+    flex: 1 1 5rem;
+    min-width: 4.5rem;
+    padding: 0.2rem 0.4rem;
+    border-radius: 3px;
+    background: var(--vscode-badge-background, #4d4d4d);
+    color: var(--vscode-badge-foreground, #ffffff);
+    font-family: var(--vscode-editor-font-family, monospace);
+    font-size: 0.8rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.advanced-search__find-chip--empty {
+    background: transparent;
+    border: 1px dashed var(--vscode-input-border, #555);
+    color: var(--vscode-descriptionForeground, #999);
+    font-style: italic;
+    font-family: inherit;
 }
 
 .advanced-search__replace-btn {
