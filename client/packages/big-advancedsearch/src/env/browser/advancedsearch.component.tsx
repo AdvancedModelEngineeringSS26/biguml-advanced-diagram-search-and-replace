@@ -13,9 +13,9 @@ import { useCallback, useContext, useEffect, useMemo, useRef, useState, type Rea
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { HighlightElementActionResponse, RequestHighlightElementAction } from '../common/highlight.action.js';
 import { ModelChangedNotification } from '../common/model-change.notification.js';
-import { applyReplacement } from '../common/replace-semantics.js';
+import { applyExactReplacement, applyReplacement } from '../common/replace-semantics.js';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
-import { FILTER_SPECS } from '../common/search-filter-spec.js';
+import { FILTER_SPECS, isTokenProperty, SPEC_BY_KEY } from '../common/search-filter-spec.js';
 import { UndoNotification } from '../common/undo.notification.js';
 
 import type { SearchFilterSpec } from '../common/search-filter-spec.js';
@@ -289,63 +289,60 @@ interface ReplaceStatus {
     canUndo?: boolean;
 }
 
-function computeNewValue(oldValue: string | undefined, find: string, replaceWith: string, caseSensitive: boolean): string | undefined {
+function computeNewValue(
+    oldValue: string | undefined,
+    find: string,
+    replaceWith: string,
+    caseSensitive: boolean,
+    exact: boolean
+): string | undefined {
     if (typeof oldValue !== 'string' || find === '') {
         return oldValue;
     }
-    return applyReplacement(oldValue, find, replaceWith, caseSensitive);
+    return exact ? applyExactReplacement(oldValue, find, replaceWith, caseSensitive) : applyReplacement(oldValue, find, replaceWith, caseSensitive);
 }
 
-// Properties whose AST values are drawn from a fixed set. The UI renders these
-// as dropdowns instead of free-text inputs. Values are uppercased to match the
-// langium AST literals (see `Visibility` in uml-model-server/.../ast.ts).
 type PropertyInputType = 'text' | 'select';
 
 interface PropertyConfig {
     label: string;
     inputType: PropertyInputType;
     values?: readonly string[];
-    dynamicValues?: boolean;
 }
 
-const PROPERTY_CONFIG: Record<string, PropertyConfig> = {
-    name: {
-        label: 'Name',
-        inputType: 'text'
-    },
-    value: {
-        label: 'Value',
-        inputType: 'text'
-    },
-    visibility: {
-        label: 'Visibility',
-        inputType: 'select',
-        values: ['PUBLIC', 'PRIVATE', 'PROTECTED', 'PACKAGE'],
-        dynamicValues: true
-    },
-    aggregation: {
-        label: 'Aggregation',
-        inputType: 'select',
-        values: ['NONE', 'SHARED', 'COMPOSITE'],
-        dynamicValues: true
-    },
-    concurrency: {
-        label: 'Concurrency',
-        inputType: 'select',
-        values: ['SEQUENTIAL', 'GUARDED', 'CONCURRENT'],
-        dynamicValues: true
-    },
+const PROPERTY_LABEL_OVERRIDES: Record<string, string> = {
+    uri: 'URI',
+    parameterDirection: 'Direction',
+    effectType: 'Effect',
+    sourceAggregation: 'Source Aggregation',
+    targetAggregation: 'Target Aggregation'
 };
+
+const BOOLEAN_VALUES = ['true', 'false'] as const;
+
+function humanizeKey(key: string): string {
+    return key
+        .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+        .split(/\s+/)
+        .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+        .join(' ');
+}
 
 // Model-change notifications arriving within this window after a replace are
 // attributed to the replace itself and must not retire its status/Undo button.
 const REPLACE_STATUS_GRACE_MS = 2000;
 
 function getPropertyConfig(prop: string): PropertyConfig {
-    return PROPERTY_CONFIG[prop] ?? {
-        label: prop,
-        inputType: 'text'
-    };
+    const label = PROPERTY_LABEL_OVERRIDES[prop] ?? humanizeKey(prop);
+    const spec = SPEC_BY_KEY.get(prop);
+
+    if (spec?.valueType === 'boolean') {
+        return { label, inputType: 'select', values: BOOLEAN_VALUES };
+    }
+    if (spec?.values && spec.values.length > 0) {
+        return { label, inputType: 'select', values: spec.values };
+    }
+    return { label, inputType: 'text' };
 }
 
 function propertyLabel(prop: string): string {
@@ -434,28 +431,6 @@ export function AdvancedSearch(): ReactElement {
         }
 
         return Array.from(set);
-    }, [results]);
-
-    const availablePropertyValues = useMemo(() => {
-        const map = new Map<string, string[]>();
-
-        for (const r of results) {
-            if (!r.properties) continue;
-
-            for (const [key, value] of Object.entries(r.properties)) {
-                if (!map.has(key)) {
-                    map.set(key, []);
-                }
-
-                const values = map.get(key)!;
-
-                if (!values.includes(value)) {
-                    values.push(value);
-                }
-            }
-        }
-
-        return map;
     }, [results]);
 
     useEffect(() => {
@@ -569,9 +544,10 @@ export function AdvancedSearch(): ReactElement {
     const previews = useMemo(() => {
         const map = new Map<string, { current: string | undefined; newValue: string; changes: boolean; invalid: boolean }>();
         if (!replaceOpen) return map;
+        const exact = isTokenProperty(selectedProperty);
         for (const r of results) {
             const current = getCurrentValue(r, selectedProperty);
-            const computed = computeNewValue(current, findPattern, replaceWith, caseSensitive);
+            const computed = computeNewValue(current, findPattern, replaceWith, caseSensitive, exact);
             const newValue = typeof computed === 'string' ? computed : (current ?? '');
             const changes = typeof current === 'string' && newValue !== current;
             // Mirrors the backend guard: a replace must not wipe the value.
@@ -708,15 +684,8 @@ export function AdvancedSearch(): ReactElement {
     const hasResults = results.length > 0;
     const isSearching = query.trim().length > 0;
     const selectedPropertyConfig = getPropertyConfig(selectedProperty);
-    const selectedFindValues =
-        selectedPropertyConfig.dynamicValues
-            ? availablePropertyValues.get(selectedProperty) ?? []
-            : selectedPropertyConfig.values ?? [];
-
-    const selectedReplaceValues =
-        selectedPropertyConfig.values ??
-        availablePropertyValues.get(selectedProperty) ??
-        [];
+    const selectedFindValues = selectedPropertyConfig.values ?? [];
+    const selectedReplaceValues = selectedPropertyConfig.values ?? [];
 
     return (
         <div className='advanced-search'>
@@ -803,16 +772,18 @@ export function AdvancedSearch(): ReactElement {
                             )}
                         </div>
                         <div className='advanced-search__replace-row'>
-                            <button
-                                type='button'
-                                className={`advanced-search__option ${caseSensitive ? 'advanced-search__option--active' : ''}`}
-                                title={`Match case (${caseSensitive ? 'on' : 'off'})`}
-                                aria-pressed={caseSensitive}
-                                aria-label='Match case'
-                                onClick={() => setCaseSensitive(v => !v)}
-                            >
-                                <span className='codicon codicon-case-sensitive' />
-                            </button>
+                            {selectedPropertyConfig.inputType !== 'select' && (
+                                <button
+                                    type='button'
+                                    className={`advanced-search__option ${caseSensitive ? 'advanced-search__option--active' : ''}`}
+                                    title={`Match case (${caseSensitive ? 'on' : 'off'})`}
+                                    aria-pressed={caseSensitive}
+                                    aria-label='Match case'
+                                    onClick={() => setCaseSensitive(v => !v)}
+                                >
+                                    <span className='codicon codicon-case-sensitive' />
+                                </button>
+                            )}
                             {selectedPropertyConfig.inputType === 'select' ? (
                                 <BSingleSelect
                                     className='advanced-search__text'
