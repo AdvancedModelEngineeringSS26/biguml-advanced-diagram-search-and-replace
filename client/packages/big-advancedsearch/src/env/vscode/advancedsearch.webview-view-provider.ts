@@ -20,11 +20,15 @@ import { UndoAction } from '@eclipse-glsp/protocol';
 import { DisposableCollection } from '@eclipse-glsp/vscode-integration';
 import { inject, injectable, postConstruct } from 'inversify';
 import { type Disposable } from 'vscode';
+import * as vscode from 'vscode';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
 import { ModelChangedNotification } from '../common/model-change.notification.js';
 import { ReplaceActionResponse } from '../common/replace.action.js';
 import type { SearchResult } from '../common/searchresult.js';
 import { UndoNotification } from '../common/undo.notification.js';
+import { PreviewsDisabledNotification, PreviewsEnabledNotification, ToggleSyntaxNotification } from '../common/view-chrome.notification.js';
+
+const PREVIEWS_ON_CONTEXT = 'bigUML.advancedsearch.previewsOn';
 
 @injectable()
 export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
@@ -40,6 +44,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected actionCache: CacheActionListener;
     protected currentDiagramSvg: string | undefined;
     protected pendingSearchResults: SearchResult[] | undefined;
+    protected pendingFindPattern: string | undefined;
     protected svgExportInFlight = false;
     protected lastQuery = '';
 
@@ -72,10 +77,12 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                         this.actionMessenger.dispatch(
                             AdvancedSearchActionResponse.create({
                                 results: this.pendingSearchResults,
+                                findPattern: this.pendingFindPattern,
                                 fullDiagramSvg: svg
                             })
                         );
                         this.pendingSearchResults = undefined;
+                        this.pendingFindPattern = undefined;
                     } else {
                         // Prefetch complete with no pending search — tell browser to clear the loading indicator
                         this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: false }));
@@ -87,8 +94,20 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
 
     protected override resolveWebviewProtocol(messenger: WebviewMessenger): Disposable {
         const disposables = new DisposableCollection();
+        vscode.commands.executeCommand('setContext', PREVIEWS_ON_CONTEXT, false);
         disposables.push(
             super.resolveWebviewProtocol(messenger),
+            vscode.commands.registerCommand('bigUML.advancedsearch.toggleSyntax', () => {
+                messenger.sendNotification(ToggleSyntaxNotification.TYPE, undefined);
+            }),
+            vscode.commands.registerCommand('bigUML.advancedsearch.enablePreviews', () => {
+                vscode.commands.executeCommand('setContext', PREVIEWS_ON_CONTEXT, true);
+                messenger.sendNotification(PreviewsEnabledNotification.TYPE, undefined);
+            }),
+            vscode.commands.registerCommand('bigUML.advancedsearch.disablePreviews', () => {
+                vscode.commands.executeCommand('setContext', PREVIEWS_ON_CONTEXT, false);
+                messenger.sendNotification(PreviewsDisabledNotification.TYPE, undefined);
+            }),
             this.actionMessenger.onActionMessage(message => {
                 if (RequestAdvancedSearchAction.is(message.action)) {
                     this.lastQuery = message.action.query;
@@ -102,12 +121,14 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                         this.actionMessenger.dispatch(
                             AdvancedSearchActionResponse.create({
                                 results,
+                                findPattern: message.action.findPattern,
                                 fullDiagramSvg: this.currentDiagramSvg
                             })
                         );
                     } else {
                         this.actionMessenger.dispatch(message);
                         this.pendingSearchResults = results.map(r => ({ ...r }));
+                        this.pendingFindPattern = message.action.findPattern;
                         this.prefetchSvg();
                     }
                 } else {

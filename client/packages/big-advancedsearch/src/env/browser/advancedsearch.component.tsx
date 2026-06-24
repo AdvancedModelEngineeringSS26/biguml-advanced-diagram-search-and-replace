@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import { BButton, BCheckbox, BOption, BSingleSelect, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
+import { BButton, BOption, BSingleSelect, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
@@ -17,6 +17,7 @@ import { applyExactReplacement, applyReplacement } from '../common/replace-seman
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
 import { FILTER_SPECS, isTokenProperty, SPEC_BY_KEY } from '../common/search-filter-spec.js';
 import { UndoNotification } from '../common/undo.notification.js';
+import { PreviewsDisabledNotification, PreviewsEnabledNotification, ToggleSyntaxNotification } from '../common/view-chrome.notification.js';
 
 import type { SearchFilterSpec } from '../common/search-filter-spec.js';
 import type { SearchResult } from '../common/searchresult.js';
@@ -388,6 +389,7 @@ export function AdvancedSearch(): ReactElement {
     const clientIdRef = useRef(clientId);
     const dispatchActionRef = useRef(dispatchAction);
     const lastReplaceAtRef = useRef(0);
+    const cheatsheetRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         clientIdRef.current = clientId;
@@ -504,9 +506,23 @@ export function AdvancedSearch(): ReactElement {
                 setReplaceStatus(undefined);
             }
         });
+        listenNotification(ToggleSyntaxNotification.TYPE, () => setShowCheatsheet(prev => !prev));
+        listenNotification(PreviewsEnabledNotification.TYPE, () => setShowAllPreviews(true));
+        listenNotification(PreviewsDisabledNotification.TYPE, () => setShowAllPreviews(false));
         // listenNotification has no disposal handle; register exactly once.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (!showCheatsheet) return;
+        const onMouseDown = (e: MouseEvent) => {
+            if (cheatsheetRef.current && !cheatsheetRef.current.contains(e.target as Node)) {
+                setShowCheatsheet(false);
+            }
+        };
+        document.addEventListener('mousedown', onMouseDown);
+        return () => document.removeEventListener('mousedown', onMouseDown);
+    }, [showCheatsheet]);
 
     const dispatchReplace = (elementIds: string[]) => {
         if (!clientId || elementIds.length === 0 || findPattern === '') {
@@ -712,66 +728,52 @@ export function AdvancedSearch(): ReactElement {
                     </BTextfield>
                 </div>
 
-                <button
-                    className='advanced-search__cheatsheet-toggle'
-                    onClick={() => setShowCheatsheet(prev => !prev)}
-                    title='Query syntax reference'
-                >
-                    <span className={`codicon codicon-${showCheatsheet ? 'chevron-up' : 'question'}`} />
-                    {showCheatsheet ? ' Hide syntax' : ' Syntax help'}
-                </button>
-
-                <BCheckbox
-                    className='advanced-search__preview-toggle'
-                    label='Show all previews'
-                    checked={showAllPreviews}
-                    onChange={((e: Event) => setShowAllPreviews(!!(e.target as HTMLInputElement).checked)) as any}
-                />
-
                 {replaceOpen && hasResults && (
                     <div className='advanced-search__replace-block'>
-                        <div className='advanced-search__property-row'>
-                            <label className='advanced-search__property-field'>
-                                <span className='advanced-search__property-label'>Property</span>
+                        <div className='advanced-search__replace-controls'>
+                            <span className='advanced-search__replace-word'>In</span>
+                            <BSingleSelect
+                                className='advanced-search__property-select'
+                                aria-label='Property to replace'
+                                value={selectedProperty}
+                                onChange={(e: any) => onPropertyChange((e.target as HTMLSelectElement).value)}
+                            >
+                                {availableProperties.map(p => (
+                                    <BOption key={p} value={p}>
+                                        {propertyLabel(p)}
+                                    </BOption>
+                                ))}
+                            </BSingleSelect>
+
+                            {selectedProperty === 'name' ? (
+                                <span className={`advanced-search__find-chip ${findPattern === '' ? 'advanced-search__find-chip--empty' : ''}`}>
+                                    {findPattern === '' ? 'name filter' : findPattern}
+                                </span>
+                            ) : selectedPropertyConfig.inputType === 'select' ? (
                                 <BSingleSelect
-                                    className='advanced-search__property-select'
-                                    value={selectedProperty}
-                                    onChange={(e: any) => onPropertyChange((e.target as HTMLSelectElement).value)}
+                                    className='advanced-search__replace-input'
+                                    aria-label='Value to find'
+                                    value={findOverride}
+                                    onChange={(e: any) => setFindOverride((e.target as HTMLSelectElement).value)}
                                 >
-                                    {availableProperties.map(p => (
-                                        <BOption key={p} value={p}>
-                                            {propertyLabel(p)}
+                                    <BOption value=''>—</BOption>
+                                    {selectedFindValues.map(v => (
+                                        <BOption key={v} value={v}>
+                                            {v}
                                         </BOption>
                                     ))}
                                 </BSingleSelect>
-                            </label>
-                            {selectedProperty !== 'name' && (
-                                <label className='advanced-search__property-field advanced-search__property-field--grow'>
-                                    <span className='advanced-search__property-label'>Find</span>
-
-                                    {selectedPropertyConfig.inputType === 'select' ? (
-                                        <BSingleSelect
-                                            value={findOverride}
-                                            onChange={(e: any) => setFindOverride((e.target as HTMLSelectElement).value)}
-                                        >
-                                            <BOption value=''>—</BOption>
-                                            {selectedFindValues.map(v => (
-                                                <BOption key={v} value={v}>
-                                                    {v}
-                                                </BOption>
-                                            ))}
-                                        </BSingleSelect>
-                                    ) : (
-                                        <BTextfield
-                                            value={findOverride}
-                                            placeholder={`${propertyLabel(selectedProperty)} value to find…`}
-                                            onInput={e => setFindOverride((e.target as HTMLInputElement).value)}
-                                        />
-                                    )}
-                                </label>
+                            ) : (
+                                <BTextfield
+                                    className='advanced-search__replace-input'
+                                    aria-label='Value to find'
+                                    value={findOverride}
+                                    placeholder='find…'
+                                    onInput={e => setFindOverride((e.target as HTMLInputElement).value)}
+                                />
                             )}
-                        </div>
-                        <div className='advanced-search__replace-row'>
+
+                            <span className='advanced-search__replace-arrow codicon codicon-arrow-right' />
                             {selectedPropertyConfig.inputType !== 'select' && (
                                 <button
                                     type='button'
@@ -786,11 +788,11 @@ export function AdvancedSearch(): ReactElement {
                             )}
                             {selectedPropertyConfig.inputType === 'select' ? (
                                 <BSingleSelect
-                                    className='advanced-search__text'
+                                    className='advanced-search__replace-input'
                                     value={replaceWith}
                                     onChange={(e: any) => setReplaceWith((e.target as HTMLSelectElement).value)}
                                 >
-                                    <BOption value=''>Replace with…</BOption>
+                                    <BOption value=''>replace with…</BOption>
                                     {selectedReplaceValues.map(v => (
                                         <BOption key={v} value={v}>
                                             {v}
@@ -799,9 +801,9 @@ export function AdvancedSearch(): ReactElement {
                                 </BSingleSelect>
                             ) : (
                                 <BTextfield
-                                    className='advanced-search__text'
+                                    className='advanced-search__replace-input'
                                     value={replaceWith}
-                                    placeholder='Replace with…'
+                                    placeholder='replace with…'
                                     onInput={e => setReplaceWith((e.target as HTMLInputElement).value)}
                                 >
                                     <span slot='end' className='codicon codicon-replace' />
@@ -824,15 +826,13 @@ export function AdvancedSearch(): ReactElement {
                                 Replace All
                             </BButton>
                         </div>
-                        {hasResults && (
-                            <p className='advanced-search__replace-hint'>
-                                {findPattern === ''
-                                    ? selectedProperty === 'name'
-                                        ? 'Add a name filter (e.g. Class[name~"User"]) to preview changes.'
-                                        : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find.`
-                                    : `Replacing matches of "${findPattern}" in ${propertyLabel(selectedProperty).toLowerCase()} — will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
-                            </p>
-                        )}
+                        <p className='advanced-search__replace-hint'>
+                            {findPattern === ''
+                                ? selectedProperty === 'name'
+                                    ? 'Add a name filter (e.g. Class[name~"User"]) to preview changes.'
+                                    : `Pick a ${propertyLabel(selectedProperty).toLowerCase()} value to find.`
+                                : `Will modify ${willChangeCount} of ${includedIds.length} included element${includedIds.length !== 1 ? 's' : ''}.`}
+                        </p>
                     </div>
                 )}
 
@@ -867,7 +867,19 @@ export function AdvancedSearch(): ReactElement {
             </div>
 
             {showCheatsheet && (
-                <div className='advanced-search__cheatsheet'>
+                <div className='advanced-search__cheatsheet' ref={cheatsheetRef}>
+                    <div className='cheatsheet__header'>
+                        <span className='cheatsheet__title'>Query syntax</span>
+                        <button
+                            type='button'
+                            className='cheatsheet__close'
+                            title='Close'
+                            aria-label='Close syntax help'
+                            onClick={() => setShowCheatsheet(false)}
+                        >
+                            <span className='codicon codicon-close' />
+                        </button>
+                    </div>
                     <p className='cheatsheet__intro'>Use structured queries to find elements by type, properties, and relationships. The search is case-insensitive.</p>
                     {CHEATSHEET.map(section => (
                         <div key={section.category} className='cheatsheet__section'>
@@ -876,7 +888,10 @@ export function AdvancedSearch(): ReactElement {
                                 <div
                                     key={idx}
                                     className='cheatsheet__entry'
-                                    onClick={() => fireSearch(entry.syntax)}
+                                    onClick={() => {
+                                        fireSearch(entry.syntax);
+                                        setShowCheatsheet(false);
+                                    }}
                                     title='Click to use this query'
                                 >
                                     <code className='cheatsheet__syntax'>{entry.syntax}</code>
@@ -1024,7 +1039,17 @@ export function AdvancedSearch(): ReactElement {
                 ) : isSearching ? (
                     searchError ? (
                         <p className='advanced-search__empty advanced-search__empty--error'>
-                            <span className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</span>
+                            <span className='codicon codicon-warning' />
+                            <span>
+                                &ldquo;{query}&rdquo; isn&rsquo;t a valid query.{' '}
+                                <button
+                                    type='button'
+                                    className='advanced-search__empty-help'
+                                    onClick={() => setShowCheatsheet(true)}
+                                >
+                                    See syntax help
+                                </button>
+                            </span>
                         </p>
                     ) : (
                         <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>
