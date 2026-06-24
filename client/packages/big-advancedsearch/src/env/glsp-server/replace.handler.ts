@@ -11,8 +11,9 @@ import { ModelPatchCommand } from '@borkdominik-biguml/uml-glsp-server/vscode';
 import type { DiagramModelState } from '@borkdominik-biguml/uml-glsp-server/vscode';
 import { CommandStack, ModelState, ModelSubmissionHandler, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
-import { applyReplacement } from '../common/replace-semantics.js';
+import { applyExactReplacement, applyReplacement } from '../common/replace-semantics.js';
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
+import { astFieldOf, isTokenProperty, SPEC_BY_KEY } from '../common/search-filter-spec.js';
 
 const SAFE_PROPERTY_RE = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
 
@@ -47,7 +48,11 @@ export class ReplaceActionHandler implements ActionHandler {
             return [ReplaceActionResponse.create({ ok: false, error: 'Find pattern must not be empty.' })];
         }
 
-        const patchOps: { op: 'replace'; path: string; value: string }[] = [];
+        const astField = astFieldOf(property);
+        const isBoolean = SPEC_BY_KEY.get(property)?.valueType === 'boolean';
+        const exactMatch = isTokenProperty(property);
+
+        const patchOps: { op: 'replace'; path: string; value: string | boolean }[] = [];
         const results: ReplaceResult[] = [];
 
         for (const id of action.elementIds) {
@@ -63,12 +68,50 @@ export class ReplaceActionHandler implements ActionHandler {
                 continue;
             }
 
-            const oldValue = (node as any)[property];
-            if (typeof oldValue !== 'string') {
+            const rawValue = (node as any)[astField];
+
+            if (isBoolean) {
+                if (typeof rawValue !== 'boolean') {
+                    results.push({
+                        id,
+                        property,
+                        oldValue: String(rawValue ?? ''),
+                        success: false,
+                        changed: false,
+                        error: `Property "${property}" is not a boolean`
+                    });
+                    continue;
+                }
+
+                const oldValue = String(rawValue);
+                const newValue = applyExactReplacement(oldValue, action.searchPattern, action.replaceWith, action.caseSensitive);
+                if (newValue === oldValue) {
+                    results.push({ id, property, oldValue, newValue, success: true, changed: false });
+                    continue;
+                }
+                if (newValue !== 'true' && newValue !== 'false') {
+                    results.push({
+                        id,
+                        property,
+                        oldValue,
+                        newValue,
+                        success: false,
+                        changed: false,
+                        error: `Invalid boolean value: "${newValue}"`
+                    });
+                    continue;
+                }
+
+                patchOps.push({ op: 'replace', path: path + '/' + astField, value: newValue === 'true' });
+                results.push({ id, property, oldValue, newValue, success: true, changed: true });
+                continue;
+            }
+
+            if (typeof rawValue !== 'string') {
                 results.push({
                     id,
                     property,
-                    oldValue: String(oldValue ?? ''),
+                    oldValue: String(rawValue ?? ''),
                     success: false,
                     changed: false,
                     error: `Property "${property}" is not a string`
@@ -76,7 +119,10 @@ export class ReplaceActionHandler implements ActionHandler {
                 continue;
             }
 
-            const newValue = applyReplacement(oldValue, action.searchPattern, action.replaceWith, action.caseSensitive);
+            const oldValue = rawValue;
+            const newValue = exactMatch
+                ? applyExactReplacement(oldValue, action.searchPattern, action.replaceWith, action.caseSensitive)
+                : applyReplacement(oldValue, action.searchPattern, action.replaceWith, action.caseSensitive);
             if (newValue === oldValue) {
                 results.push({ id, property, oldValue, newValue, success: true, changed: false });
                 continue;
@@ -98,7 +144,7 @@ export class ReplaceActionHandler implements ActionHandler {
                 continue;
             }
 
-            patchOps.push({ op: 'replace', path: path + '/' + property, value: newValue });
+            patchOps.push({ op: 'replace', path: path + '/' + astField, value: newValue });
             results.push({ id, property, oldValue, newValue, success: true, changed: true });
         }
 
