@@ -66,6 +66,12 @@ The parser stack is implemented with Chevrotain in three layers:
 If tokenization or parsing fails, an exception is thrown and the action handler returns an empty result set.
 
 When adding a new element, like for example say you were to add an element to be recognized as "SassyClass" - then you would have to add it here as an element. But beware of overlapping keywords, as his can be sometimes bad for chevrotain. https://chevrotain.io/docs/
+
+And this is how the grammar looks like (from an abstract point of view): (can be generated with https://chevrotain.io/playground/, but needs converting to JS)
+<p align="center">
+  <img src="./media/chevrotain-generated-grammar.png" width="1080px" alt="Demo" />
+</p>
+
 #### Where the scope definitions live
 
 Search filter scope and type definitions are centralized in:
@@ -155,6 +161,11 @@ In short: Feature 2 compiles user query text into a validated criteria AST (Chev
 
 ## 8. Open Issues
 
+### Feature 2
+The search grammar could be coupled more with the grammar of the language. Instead of this, we did it manually and defined this in `packages/big-advancedsearch/src/env/common/search-filter-spec.ts`.
+
 ## 9. Future Improvements
+
+Migrate the existing hard coded search paramaters from `packages/big-advancedsearch/src/env/common/search-filter-spec.ts` to use the `packages/uml-glsp-server/src/gen/common/model-types/class-diagram-model-types.ts`
 
 ## 10. Feedback about the course
