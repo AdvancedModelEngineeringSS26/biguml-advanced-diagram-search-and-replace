@@ -389,6 +389,7 @@ export function AdvancedSearch(): ReactElement {
     const clientIdRef = useRef(clientId);
     const dispatchActionRef = useRef(dispatchAction);
     const lastReplaceAtRef = useRef(0);
+    const cheatsheetRef = useRef<HTMLDivElement | null>(null);
 
     useEffect(() => {
         clientIdRef.current = clientId;
@@ -511,6 +512,17 @@ export function AdvancedSearch(): ReactElement {
         // listenNotification has no disposal handle; register exactly once.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
+
+    useEffect(() => {
+        if (!showCheatsheet) return;
+        const onMouseDown = (e: MouseEvent) => {
+            if (cheatsheetRef.current && !cheatsheetRef.current.contains(e.target as Node)) {
+                setShowCheatsheet(false);
+            }
+        };
+        document.addEventListener('mousedown', onMouseDown);
+        return () => document.removeEventListener('mousedown', onMouseDown);
+    }, [showCheatsheet]);
 
     const dispatchReplace = (elementIds: string[]) => {
         if (!clientId || elementIds.length === 0 || findPattern === '') {
@@ -855,7 +867,19 @@ export function AdvancedSearch(): ReactElement {
             </div>
 
             {showCheatsheet && (
-                <div className='advanced-search__cheatsheet'>
+                <div className='advanced-search__cheatsheet' ref={cheatsheetRef}>
+                    <div className='cheatsheet__header'>
+                        <span className='cheatsheet__title'>Query syntax</span>
+                        <button
+                            type='button'
+                            className='cheatsheet__close'
+                            title='Close'
+                            aria-label='Close syntax help'
+                            onClick={() => setShowCheatsheet(false)}
+                        >
+                            <span className='codicon codicon-close' />
+                        </button>
+                    </div>
                     <p className='cheatsheet__intro'>Use structured queries to find elements by type, properties, and relationships. The search is case-insensitive.</p>
                     {CHEATSHEET.map(section => (
                         <div key={section.category} className='cheatsheet__section'>
@@ -864,7 +888,10 @@ export function AdvancedSearch(): ReactElement {
                                 <div
                                     key={idx}
                                     className='cheatsheet__entry'
-                                    onClick={() => fireSearch(entry.syntax)}
+                                    onClick={() => {
+                                        fireSearch(entry.syntax);
+                                        setShowCheatsheet(false);
+                                    }}
                                     title='Click to use this query'
                                 >
                                     <code className='cheatsheet__syntax'>{entry.syntax}</code>

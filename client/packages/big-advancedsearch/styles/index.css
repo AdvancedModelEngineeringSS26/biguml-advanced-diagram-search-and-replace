@@ -11,6 +11,7 @@
     display: flex;
     flex-direction: column;
     width: 100%;
+    position: relative;
 }
 .advanced-search__controls {
     display: flex;
@@ -456,32 +457,48 @@
     opacity: 0.5;
     cursor: not-allowed;
 }
-.advanced-search__cheatsheet-toggle {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    margin-top: 6px;
-    padding: 2px 6px;
-    background: none;
-    border: none;
-    color: var(--vscode-textLink-foreground, #4daafc);
-    font-size: 11px;
-    cursor: pointer;
-    opacity: 0.8;
-}
-
-.advanced-search__cheatsheet-toggle:hover {
-    opacity: 1;
-    text-decoration: underline;
-}
-
 .advanced-search__cheatsheet {
+    position: absolute;
+    left: 0;
+    right: 0;
+    z-index: 20;
     margin-top: 8px;
     padding: 8px;
     border: 1px solid var(--vscode-panel-border, #444);
     border-radius: 4px;
     font-size: 11px;
     background: var(--vscode-editor-background, #1e1e1e);
+    max-height: 70vh;
+    overflow-y: auto;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.4);
+}
+
+.cheatsheet__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 6px;
+}
+
+.cheatsheet__title {
+    font-weight: bold;
+    font-size: 11px;
+    color: var(--vscode-foreground, #ccc);
+}
+
+.cheatsheet__close {
+    display: flex;
+    align-items: center;
+    padding: 2px;
+    background: none;
+    border: none;
+    color: var(--vscode-icon-foreground, #ccc);
+    cursor: pointer;
+    opacity: 0.8;
+}
+
+.cheatsheet__close:hover {
+    opacity: 1;
 }
 
 .cheatsheet__intro {
