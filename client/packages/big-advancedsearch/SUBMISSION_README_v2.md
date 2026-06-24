@@ -159,6 +159,62 @@ The backend evaluates the search AST against the UML diagram AST (semantic model
 
 In short: Feature 2 compiles user query text into a validated criteria AST (Chevrotain lexer + parser + visitor), then recursively evaluates that AST against the semantic UML model tree.
 
+### Feature 3
+
+Feature 3 adds a search-and-replace workflow on top of Feature 2. Once a query has produced a result set, the user can rewrite a chosen string property across the matched elements, preview every change before committing, include or exclude individual rows, and undo the whole batch. The implementation spans the shared protocol, a single shared replace-semantics module, a GLSP server action handler, the VS Code host bridge, and the replace UI in the webview.
+
+#### End-to-end workflow (matched results to applied patch)
+
+1. The user runs a search (Feature 2). The search response also carries a find pattern derived server-side from the parsed query, so the replace UI never has to re-parse the query and can never drift from its semantics.
+2. The user expands the replace block (collapsed by default behind a chevron next to the shared search field), chooses the target property, enters or picks the replacement value, and optionally enables match-case.
+3. The webview renders a per-row `old → new` preview for every result, computed locally with the exact same logic the server uses, so the preview is what the server will actually write.
+4. The user can exclude individual rows, then trigger **Replace All** or a single-row replace. This dispatches a `RequestReplaceAction` with the included element IDs, the search pattern, the replacement, the selected property, and the case-sensitivity flag.
+5. The GLSP server handler validates and rewrites each element, builds a JSON-patch batch, applies it through the GLSP command stack, and re-submits the model so the panel and diagram refresh.
+6. The handler returns a per-row result list; each row shows an outcome icon (✓ changed / – no-op / ✗ error) and the panel offers an inline Undo button for the batch.
+
+#### The replace protocol
+
+Defined in `packages/big-advancedsearch/src/env/common/replace.action.ts`:
+
+- `RequestReplaceAction` (webview → server): `elementIds`, `searchPattern`, `replaceWith`, optional `property` (defaults to `name`), and optional `caseSensitive`.
+- `ReplaceActionResponse` (server → webview): `ok` plus a per-row `ReplaceResult[]` or a top-level `error`.
+- `ReplaceResult` carries `oldValue`, `newValue`, `success`, and a `changed` flag that distinguishes rows actually mutated from no-ops and skipped/errored rows — this drives the per-row outcome icons.
+
+The handler is registered alongside the search handler in `advancedsearch.module.ts`.
+
+#### Shared replace semantics (preview equals commit)
+
+Matching is literal substring matching, case-insensitive unless match-case is enabled. The logic lives in one place, `packages/big-advancedsearch/src/env/common/replace-semantics.ts` (`applyReplacement`), and is imported by both the server handler (the real mutation) and the webview (the per-row preview), so the two can never disagree. The search pattern is escaped before being used internally, and `$` in the replacement text is treated literally rather than as a substitution metacharacter.
+
+#### Property selector and per-row preview (UI)
+
+The replace block in `advancedsearch.component.tsx` lets the user target more than just the name:
+
+- A `PROPERTY_CONFIG` map declares, per editable property, a label, an input type (free text or dropdown), and the allowed values for enum properties. The editable set is `name`, `value`, `visibility` (`PUBLIC/PRIVATE/PROTECTED/PACKAGE`), `aggregation` (`NONE/SHARED/COMPOSITE`), and `concurrency` (`SEQUENTIAL/GUARDED/CONCURRENT`).
+- The server mirrors this with an `EDITABLE_FIELDS` whitelist in `classmatcher.ts`, and each `SearchResult` carries the current value of every editable property so the dropdowns and previews are populated from real data.
+- For `name`, the find pattern comes from the query; for any other property the user supplies it directly (a dropdown for enum properties, free text otherwise).
+- Each result row shows the computed `old → new` preview; rows lacking the property render `—` and stay disabled, and a hint summarizes how many of the included elements will change.
+
+#### Safety rules
+
+The server handler guards the dangerous edge cases:
+
+- Property names are validated before being used to build the patch path.
+- An empty search pattern is rejected (it would otherwise wipe values).
+- A replacement that would clear a value is rejected per row and disabled in the preview, since empty names/enum values can't be represented in the textual model.
+- Unknown elements, missing paths, and non-string properties yield a failed result for that row rather than aborting the batch; only changed rows produce patch ops.
+- Patch failures are propagated so a failed replace reports `ok:false` instead of silently offering an Undo for a mutation that never happened.
+
+#### Undo integration and model-change refresh
+
+Replace is wired into the undo stack and kept in sync with external edits:
+
+- The patch is applied through the GLSP command stack and submitted as a regular model operation, so the change registers with VS Code's undo stack, the dirty indicator, and save.
+- The panel's inline Undo button sends an undo notification to the host, which routes a GLSP `UndoAction` to the active diagram client (the panel can't dispatch it itself).
+- On any model change the host notifies the webview, which re-runs its current query (rather than reverting to the full element list) and retires a now-stale Undo button once the change falls outside a short grace window.
+
+In short: Feature 3 reuses Feature 2's matched results, derives a safe find pattern from the parsed query, previews each edit with the exact same semantics the server applies, and commits the batch through the GLSP command stack so it is fully undoable.
+
 ## 8. Open Issues
 
 ### Feature 2
