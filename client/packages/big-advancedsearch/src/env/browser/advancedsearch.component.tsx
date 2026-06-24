@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import { BButton, BCheckbox, BOption, BSingleSelect, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
+import { BButton, BOption, BSingleSelect, BTextfield, VSCodeContext } from '@borkdominik-biguml/big-components';
 import { useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactElement } from 'react';
 
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
@@ -17,6 +17,7 @@ import { applyExactReplacement, applyReplacement } from '../common/replace-seman
 import { ReplaceActionResponse, RequestReplaceAction, type ReplaceResult } from '../common/replace.action.js';
 import { FILTER_SPECS, isTokenProperty, SPEC_BY_KEY } from '../common/search-filter-spec.js';
 import { UndoNotification } from '../common/undo.notification.js';
+import { PreviewsDisabledNotification, PreviewsEnabledNotification, ToggleSyntaxNotification } from '../common/view-chrome.notification.js';
 
 import type { SearchFilterSpec } from '../common/search-filter-spec.js';
 import type { SearchResult } from '../common/searchresult.js';
@@ -504,6 +505,9 @@ export function AdvancedSearch(): ReactElement {
                 setReplaceStatus(undefined);
             }
         });
+        listenNotification(ToggleSyntaxNotification.TYPE, () => setShowCheatsheet(prev => !prev));
+        listenNotification(PreviewsEnabledNotification.TYPE, () => setShowAllPreviews(true));
+        listenNotification(PreviewsDisabledNotification.TYPE, () => setShowAllPreviews(false));
         // listenNotification has no disposal handle; register exactly once.
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -711,22 +715,6 @@ export function AdvancedSearch(): ReactElement {
                         <span slot='end' className='codicon codicon-search' />
                     </BTextfield>
                 </div>
-
-                <button
-                    className='advanced-search__cheatsheet-toggle'
-                    onClick={() => setShowCheatsheet(prev => !prev)}
-                    title='Query syntax reference'
-                >
-                    <span className={`codicon codicon-${showCheatsheet ? 'chevron-up' : 'question'}`} />
-                    {showCheatsheet ? ' Hide syntax' : ' Syntax help'}
-                </button>
-
-                <BCheckbox
-                    className='advanced-search__preview-toggle'
-                    label='Show all previews'
-                    checked={showAllPreviews}
-                    onChange={((e: Event) => setShowAllPreviews(!!(e.target as HTMLInputElement).checked)) as any}
-                />
 
                 {replaceOpen && hasResults && (
                     <div className='advanced-search__replace-block'>
