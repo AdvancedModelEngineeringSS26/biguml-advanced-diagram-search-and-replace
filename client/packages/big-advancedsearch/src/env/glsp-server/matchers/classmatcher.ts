@@ -101,6 +101,7 @@ export class ClassDiagramMatcher implements IMatcher {
             }
 
             const name = element.name ?? `<<${type}>>`;
+            const properties = this.extractProperties(element);
 
             switch (type) {
                 case 'Class':
@@ -112,7 +113,7 @@ export class ClassDiagramMatcher implements IMatcher {
                 case 'Package':
                 case 'InstanceSpecification':
                 case 'LiteralSpecification':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, properties });
                     break;
 
                 case 'Property':
@@ -121,7 +122,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName)
+                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName),
+                        properties
                     });
                     break;
 
@@ -131,7 +133,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: parentName ? `In ${parentName}` : undefined
+                        details: parentName ? `In ${parentName}` : undefined,
+                        properties
                     });
                     break;
 
@@ -141,7 +144,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName)
+                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName),
+                        properties
                     });
                     break;
 
@@ -151,7 +155,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: parentName ? `In Enumeration ${parentName}` : undefined
+                        details: parentName ? `In Enumeration ${parentName}` : undefined,
+                        properties
                     });
                     break;
 
@@ -161,7 +166,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined
+                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined,
+                        properties
                     });
                     break;
             }
@@ -190,10 +196,57 @@ export class ClassDiagramMatcher implements IMatcher {
                 type,
                 name: relationName,
                 details: `${type} from ${sourceName} to ${targetName}`,
+                properties: this.extractProperties(relation),
                 sourceId,
                 targetId
             });
         }
+    }
+
+    // Scalar string fields the replace UI is allowed to target. Kept narrow on
+    // purpose: reference-valued props (propertyType.$refText etc.) are deferred
+    // until cross-reference rename lands.
+
+    private static readonly EDITABLE_FIELDS = new Set([
+        'name',
+        'value',
+        'visibility',
+        'aggregation',
+        'concurrency'
+    ]);
+
+    // The rest of the fields which can be added to the editable set:
+        // '__id',
+        // '$type',
+        // '$container',
+        // '$containerProperty',
+        // '$containerIndex',
+        // 'sourceMultiplicity',
+        // 'targetMultiplicity',
+        // 'relationType',
+        // 'sourceAggregation',
+        // 'targetAggregation',
+        // 'uri',
+
+
+    private extractProperties(element: any): Record<string, string> | undefined {
+        const props: Record<string, string> = {};
+
+        for (const [key, value] of Object.entries(element)) {
+            if (this.isEditableStringField(key, value)) {
+                props[key] = value;
+            }
+        }
+
+        return Object.keys(props).length > 0 ? props : undefined;
+    }
+
+    private isEditableStringField(key: string, value: unknown): value is string {
+        return (
+            typeof value === 'string' &&
+            value.trim().length > 0 &&
+            ClassDiagramMatcher.EDITABLE_FIELDS.has(key)
+        );
     }
 
     private buildTypedDetails(typeName?: string, parentName?: string): string | undefined {
