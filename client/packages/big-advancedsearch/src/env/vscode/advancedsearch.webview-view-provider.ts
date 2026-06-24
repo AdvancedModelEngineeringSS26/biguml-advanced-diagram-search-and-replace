@@ -44,6 +44,7 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
     protected actionCache: CacheActionListener;
     protected currentDiagramSvg: string | undefined;
     protected pendingSearchResults: SearchResult[] | undefined;
+    protected pendingFindPattern: string | undefined;
     protected svgExportInFlight = false;
     protected lastQuery = '';
 
@@ -76,10 +77,12 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                         this.actionMessenger.dispatch(
                             AdvancedSearchActionResponse.create({
                                 results: this.pendingSearchResults,
+                                findPattern: this.pendingFindPattern,
                                 fullDiagramSvg: svg
                             })
                         );
                         this.pendingSearchResults = undefined;
+                        this.pendingFindPattern = undefined;
                     } else {
                         // Prefetch complete with no pending search — tell browser to clear the loading indicator
                         this.actionMessenger.dispatch(AdvancedSearchActionResponse.create({ exportInFlight: false }));
@@ -118,12 +121,14 @@ export class AdvancedSearchWebviewViewProvider extends WebviewViewProvider {
                         this.actionMessenger.dispatch(
                             AdvancedSearchActionResponse.create({
                                 results,
+                                findPattern: message.action.findPattern,
                                 fullDiagramSvg: this.currentDiagramSvg
                             })
                         );
                     } else {
                         this.actionMessenger.dispatch(message);
                         this.pendingSearchResults = results.map(r => ({ ...r }));
+                        this.pendingFindPattern = message.action.findPattern;
                         this.prefetchSvg();
                     }
                 } else {
