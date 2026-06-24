@@ -72,24 +72,8 @@
 						"isStatic": false,
 						"isQuery": false,
 						"visibility": "PUBLIC",
-						"concurrency": "SEQUENTIAL",
-						"parameters": [
-							{
-								"__type": "Parameter",
-								"__id": "af7332fee-27dc-407a-a91d-45c011d352cb",
-								"name": "NewParameter1",
-								"isException": false,
-								"isStream": false,
-								"isOrdered": false,
-								"isUnique": false,
-								"visibility": "PUBLIC",
-								"parameterType": {
-									"__type": "Reference",
-									"__refType": "DataTypeReference",
-									"__value": "undefined"
-								}
-							}
-						]
+						"concurrency": "GUARDED",
+						"parameters": []
 					},
 					{
 						"__type": "Operation",
@@ -134,6 +118,34 @@
 						"visibility": "PUBLIC",
 						"concurrency": "SEQUENTIAL",
 						"parameters": []
+					},
+					{
+						"__type": "Operation",
+						"__id": "af28b6f32-3fa1-4c77-99c2-8f9ed3827e52",
+						"name": "changeGear",
+						"isAbstract": false,
+						"isStatic": false,
+						"isQuery": false,
+						"visibility": "PUBLIC",
+						"concurrency": "SEQUENTIAL",
+						"parameters": [
+							{
+								"__type": "Parameter",
+								"__id": "af380bf97-c56d-453c-b209-9cab7acb89da",
+								"name": "gear",
+								"isException": false,
+								"isStream": false,
+								"isOrdered": false,
+								"isUnique": false,
+								"direction": "IN",
+								"visibility": "PUBLIC",
+								"parameterType": {
+									"__type": "Reference",
+									"__refType": "DataTypeReference",
+									"__value": "a5a98804c-b44f-4bde-8393-00872a4b6db1"
+								}
+							}
+						]
 					}
 				],
 				"isActive": true,

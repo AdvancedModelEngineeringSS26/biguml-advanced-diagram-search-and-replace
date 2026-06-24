@@ -11,6 +11,7 @@
 
 import type { ClassDiagram, ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
 
+import { EDITABLE_SPECS } from '../../common/search-filter-spec.js';
 import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
 import { matchesCriteriaOnElement } from './matcher-utils.js';
@@ -203,50 +204,22 @@ export class ClassDiagramMatcher implements IMatcher {
         }
     }
 
-    // Scalar string fields the replace UI is allowed to target. Kept narrow on
-    // purpose: reference-valued props (propertyType.$refText etc.) are deferred
-    // until cross-reference rename lands.
-
-    private static readonly EDITABLE_FIELDS = new Set([
-        'name',
-        'value',
-        'visibility',
-        'aggregation',
-        'concurrency'
-    ]);
-
-    // The rest of the fields which can be added to the editable set:
-        // '__id',
-        // '$type',
-        // '$container',
-        // '$containerProperty',
-        // '$containerIndex',
-        // 'sourceMultiplicity',
-        // 'targetMultiplicity',
-        // 'relationType',
-        // 'sourceAggregation',
-        // 'targetAggregation',
-        // 'uri',
-
-
     private extractProperties(element: any): Record<string, string> | undefined {
         const props: Record<string, string> = {};
 
-        for (const [key, value] of Object.entries(element)) {
-            if (this.isEditableStringField(key, value)) {
-                props[key] = value;
+        for (const spec of EDITABLE_SPECS) {
+            const raw = element[spec.astField ?? spec.key];
+
+            if (spec.valueType === 'boolean') {
+                if (typeof raw === 'boolean') {
+                    props[spec.key] = String(raw);
+                }
+            } else if (typeof raw === 'string' && raw.trim().length > 0) {
+                props[spec.key] = raw;
             }
         }
 
         return Object.keys(props).length > 0 ? props : undefined;
-    }
-
-    private isEditableStringField(key: string, value: unknown): value is string {
-        return (
-            typeof value === 'string' &&
-            value.trim().length > 0 &&
-            ClassDiagramMatcher.EDITABLE_FIELDS.has(key)
-        );
     }
 
     private buildTypedDetails(typeName?: string, parentName?: string): string | undefined {

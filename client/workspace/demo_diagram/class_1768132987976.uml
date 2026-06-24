@@ -87,7 +87,41 @@
 									"__type": "Reference",
 									"__refType": "DataTypeReference",
 									"__value": "undefined"
-								}
+								},
+								"direction": "IN"
+							},
+							{
+								"__type": "Parameter",
+								"isException": false,
+								"isStream": false,
+								"isOrdered": false,
+								"isUnique": false,
+								"visibility": "PUBLIC",
+								"__id": "ap000001-0000-0000-0000-000000000001",
+								"name": "gearPosition",
+								"direction": "OUT"
+							},
+							{
+								"__type": "Parameter",
+								"isException": false,
+								"isStream": false,
+								"isOrdered": false,
+								"isUnique": false,
+								"visibility": "PUBLIC",
+								"__id": "ap000002-0000-0000-0000-000000000002",
+								"name": "speedLimit",
+								"direction": "INOUT"
+							},
+							{
+								"__type": "Parameter",
+								"isException": false,
+								"isStream": false,
+								"isOrdered": false,
+								"isUnique": false,
+								"visibility": "PUBLIC",
+								"__id": "ap000003-0000-0000-0000-000000000003",
+								"name": "throttleLevel",
+								"direction": "IN"
 							}
 						]
 					},
