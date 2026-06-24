@@ -1039,7 +1039,17 @@ export function AdvancedSearch(): ReactElement {
                 ) : isSearching ? (
                     searchError ? (
                         <p className='advanced-search__empty advanced-search__empty--error'>
-                            <span className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</span>
+                            <span className='codicon codicon-warning' />
+                            <span>
+                                &ldquo;{query}&rdquo; isn&rsquo;t a valid query.{' '}
+                                <button
+                                    type='button'
+                                    className='advanced-search__empty-help'
+                                    onClick={() => setShowCheatsheet(true)}
+                                >
+                                    See syntax help
+                                </button>
+                            </span>
                         </p>
                     ) : (
                         <p className='advanced-search__empty'>No results for &ldquo;{query}&rdquo;</p>

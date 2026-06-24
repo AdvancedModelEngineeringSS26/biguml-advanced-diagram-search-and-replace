@@ -466,6 +466,20 @@
     color: var(--vscode-errorForeground, #f48771);
 }
 
+.advanced-search__empty-help {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    color: var(--vscode-textLink-foreground, #4daafc);
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.advanced-search__empty-help:hover {
+    color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground, #4daafc));
+}
+
 .disable-btn {
     opacity: 0.5;
     cursor: not-allowed;
