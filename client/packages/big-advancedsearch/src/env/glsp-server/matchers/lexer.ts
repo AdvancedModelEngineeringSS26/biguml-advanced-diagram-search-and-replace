@@ -128,6 +128,12 @@ export const Similar = createToken({
     pattern: /~/
 });
 
+export const ParameterKeyword = createToken({
+    name: 'ParameterKeyword',
+    pattern: /Parameter/i,
+    longer_alt: Identifier
+});
+
 export const allTokens = [
     WhiteSpace,
 
@@ -143,6 +149,7 @@ export const allTokens = [
     PackageKeyword,
     InstanceSpecificationKeyword,
     SlotKeyword,
+    ParameterKeyword,
 
     BooleanLiteral,
     IntegerLiteral,

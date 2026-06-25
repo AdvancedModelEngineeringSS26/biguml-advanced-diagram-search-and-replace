@@ -11,6 +11,7 @@
 
 import type { ClassDiagram, ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
 
+import { EDITABLE_SPECS } from '../../common/search-filter-spec.js';
 import type { SearchResult } from '../../common/searchresult.js';
 import type { IMatcher } from './IMatcher.js';
 import { matchesCriteriaOnElement } from './matcher-utils.js';
@@ -101,6 +102,7 @@ export class ClassDiagramMatcher implements IMatcher {
             }
 
             const name = element.name ?? `<<${type}>>`;
+            const properties = this.extractProperties(element);
 
             switch (type) {
                 case 'Class':
@@ -112,7 +114,7 @@ export class ClassDiagramMatcher implements IMatcher {
                 case 'Package':
                 case 'InstanceSpecification':
                 case 'LiteralSpecification':
-                    results.push({ id, type, name, parentName });
+                    results.push({ id, type, name, parentName, properties });
                     break;
 
                 case 'Property':
@@ -121,7 +123,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName)
+                        details: this.buildTypedDetails(element.propertyType?.$refText, parentName),
+                        properties
                     });
                     break;
 
@@ -131,7 +134,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: parentName ? `In ${parentName}` : undefined
+                        details: parentName ? `In ${parentName}` : undefined,
+                        properties
                     });
                     break;
 
@@ -141,7 +145,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName)
+                        details: this.buildTypedDetails(element.parameterType?.$refText, parentName),
+                        properties
                     });
                     break;
 
@@ -151,7 +156,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: parentName ? `In Enumeration ${parentName}` : undefined
+                        details: parentName ? `In Enumeration ${parentName}` : undefined,
+                        properties
                     });
                     break;
 
@@ -161,7 +167,8 @@ export class ClassDiagramMatcher implements IMatcher {
                         type,
                         name,
                         parentName,
-                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined
+                        details: element.definingFeature?.$refText ? `Feature: ${element.definingFeature.$refText}` : undefined,
+                        properties
                     });
                     break;
             }
@@ -189,9 +196,30 @@ export class ClassDiagramMatcher implements IMatcher {
                 id: relation.__id,
                 type,
                 name: relationName,
-                details: `${type} from ${sourceName} to ${targetName}`
+                details: `${type} from ${sourceName} to ${targetName}`,
+                properties: this.extractProperties(relation),
+                sourceId,
+                targetId
             });
         }
+    }
+
+    private extractProperties(element: any): Record<string, string> | undefined {
+        const props: Record<string, string> = {};
+
+        for (const spec of EDITABLE_SPECS) {
+            const raw = element[spec.astField ?? spec.key];
+
+            if (spec.valueType === 'boolean') {
+                if (typeof raw === 'boolean') {
+                    props[spec.key] = String(raw);
+                }
+            } else if (typeof raw === 'string' && raw.trim().length > 0) {
+                props[spec.key] = raw;
+            }
+        }
+
+        return Object.keys(props).length > 0 ? props : undefined;
     }
 
     private buildTypedDetails(typeName?: string, parentName?: string): string | undefined {

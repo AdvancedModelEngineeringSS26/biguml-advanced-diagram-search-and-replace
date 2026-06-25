@@ -7,7 +7,7 @@
  * SPDX-License-Identifier: MIT
  **********************************************************************************/
 
-import type { ClassDiagramNodes, ClassDiagramEdges } from '@borkdominik-biguml/uml-model-server/grammar';
+import type { ClassDiagramEdges, ClassDiagramNodes } from '@borkdominik-biguml/uml-model-server/grammar';
 import type { SearchCriteria, SearchFilter } from './search-ast.js';
 
 export function matchesCriteriaOnElement(
@@ -67,6 +67,16 @@ function getChildrenForCriteria(element: any, childCriteria: SearchCriteria): an
         case 'EnumerationLiteral':
             return Array.isArray(element.values) ? element.values : [];
 
+        case 'Slot':
+            return Array.isArray(element.slots) ? element.slots : [];
+        
+        case 'Parameter':
+            return Array.isArray(element.parameters)
+                ? element.parameters
+                : Array.isArray(element.ownedParameters)
+                    ? element.ownedParameters
+                    : [];
+
         default:
             return [];
     }
@@ -91,12 +101,7 @@ function matchesFilter(element: any, filter: SearchFilter, index: Map<string, Cl
         return matchesCriteriaOnElement(refNode, nestedCriteria, index);
     }
 
-    let actual = element[filter.key];
-
-    if (filter.key === 'type' && actual === undefined) {
-        actual = element.propertyType?.$refText;
-    }
-
+    const actual = getFilterValue(element, filter);
     const expected = filter.value.value;
 
     switch (filter.operator) {
@@ -121,6 +126,20 @@ function matchesFilter(element: any, filter: SearchFilter, index: Map<string, Cl
         default:
             return false;
     }
+}
+
+const filterValueExtractors: Record<string, (element: any) => unknown> = {
+    type: element => element.propertyType?.$refText,
+    propertyType: element => element.propertyType?.ref?.name ?? element.propertyType?.$refText,
+    effectType: element => element.effect,
+    parameterDirection: element => element.direction,
+    parameterType: element => element.parameterType?.ref?.name ?? element.parameterType?.$refText,
+    definingFeature: element => element.definingFeature?.ref?.name ?? element.definingFeature?.$refText
+};
+
+function getFilterValue(element: any, filter: SearchFilter): unknown {
+    const extractor = filterValueExtractors[filter.key];
+    return extractor ? extractor(element) : element[filter.key];
 }
 
 function normalize(value: unknown): string {

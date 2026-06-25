@@ -8,7 +8,7 @@
  **********************************************************************************/
 
 import type { DiagramModelState } from '@borkdominik-biguml/uml-glsp-server/vscode';
-import { SelectAction, SelectAllAction } from '@eclipse-glsp/protocol';
+import { FitToScreenAction, SelectAction, SelectAllAction } from '@eclipse-glsp/protocol';
 import { ModelState, type ActionHandler, type MaybePromise } from '@eclipse-glsp/server';
 import { inject, injectable } from 'inversify';
 import { AdvancedSearchActionResponse, RequestAdvancedSearchAction } from '../common/advancedsearch.action.js';
@@ -16,6 +16,7 @@ import { HighlightElementActionResponse, RequestHighlightElementAction } from '.
 import type { SearchResult } from '../common/searchresult.js';
 import type { IMatcher } from './matchers/IMatcher.js';
 import { ClassDiagramMatcher } from './matchers/classmatcher.js';
+import { extractNameFindPattern } from './matchers/find-pattern.js';
 import { buildAst } from './matchers/visitor.js';
 
 @injectable()
@@ -65,18 +66,28 @@ export class AdvancedSearchActionHandler implements ActionHandler {
                 }
             }
 
-            return [AdvancedSearchActionResponse.create({ results: this.sortResults(results) })];
+            return [
+                AdvancedSearchActionResponse.create({
+                    results: this.sortResults(results),
+                    findPattern: extractNameFindPattern(criteria)
+                })
+            ];
         } catch (error) {
             console.error('Could not parse query', error);
-            return [AdvancedSearchActionResponse.create({ results: [] })];
+            const message = error instanceof Error ? error.message : String(error);
+            return [AdvancedSearchActionResponse.create({ results: [], error: message })];
         }
     }
 
     protected handleHighlight(action: RequestHighlightElementAction): any[] {
         const uri = action.semanticUri;
+        // Edges aren't bounds-aware, so fitting to a relation's own id does nothing.
+        // Relations pass their endpoint ids here so we fit to the connected nodes instead.
+        const fitIds = action.fitElementIds?.length ? action.fitElementIds : [uri];
         return [
             SelectAllAction.create(false),
             SelectAction.create({ selectedElementsIDs: [uri] }),
+            FitToScreenAction.create(fitIds, { maxZoom: 1, padding: 50, animate: true }),
             HighlightElementActionResponse.create({ ok: true })
         ];
     }
